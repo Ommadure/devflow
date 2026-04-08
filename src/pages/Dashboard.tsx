@@ -84,7 +84,7 @@ export function Dashboard() {
       >
         {tools.map((tool) => (
           <motion.div key={tool.to} variants={item}>
-            <Link to={tool.to} className="card p-6 flex flex-col h-full group block cursor-pointer hover:border-accent transition-colors">
+            <Link to={tool.to} className="card p-6 flex flex-col h-full group cursor-pointer hover:border-accent transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div className={`p-3 rounded-xl ${tool.bg} ${tool.color}`}>
                   <tool.icon className="w-6 h-6" />

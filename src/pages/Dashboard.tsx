@@ -85,6 +85,17 @@ const item = {
   show: { opacity: 1, y: 0 },
 };
 
+const renderStat = (tool: ToolCard) => {
+  if (tool.stat) {
+    return (
+      <div className="mt-6 pt-4 border-t border-border flex items-center text-sm font-medium text-gray-300">
+        {tool.stat}
+      </div>
+    );
+  }
+  return null;
+};
+
 export function Dashboard() {
   const snippetsCount = useAppSelector(
     (state) => state.snippets.snippets.length,
@@ -143,11 +154,7 @@ export function Dashboard() {
                 {tool.title}
               </h3>
               <p className="text-gray-400 flex-1">{tool.description}</p>
-              {tool.stat && (
-                <div className="mt-6 pt-4 border-t border-border flex items-center text-sm font-medium text-gray-300">
-                  {tool.stat}
-                </div>
-              )}
+              {renderStat(tool)}
             </Link>
           </motion.div>
         ))}

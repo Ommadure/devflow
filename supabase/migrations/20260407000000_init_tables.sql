@@ -74,3 +74,17 @@ FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 CREATE TRIGGER update_user_stats_modtime
 BEFORE UPDATE ON user_stats
 FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+
+-- Create a trigger to automatically create user_stats for new users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.user_stats (user_id)
+    VALUES (NEW.id);
+    RETURN NEW;
+END;
+$$ language 'plpgsql' security definer;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

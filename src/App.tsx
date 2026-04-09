@@ -25,9 +25,14 @@ function App() {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      dispatch(setUser(session?.user ?? null));
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        dispatch(setUser(session?.user ?? null));
+      })
+      .catch((err) => {
+        console.error('Auth initialization error:', err);
+        dispatch(setUser(null)); // Ensure loading state is cleared
+      });
 
     // Listen for changes on auth state (logged in, signed out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

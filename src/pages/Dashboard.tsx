@@ -1,54 +1,72 @@
-import { useMemo } from 'react';
-import { useAppSelector } from '../hooks/redux';
-import { Link } from 'react-router-dom';
-import { Github, Code2, StickyNote, Timer, Webhook, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useMemo } from "react";
+import { useAppSelector } from "../hooks/redux";
+import { Link } from "react-router-dom";
+import {
+  Github,
+  Code2,
+  StickyNote,
+  Timer,
+  Webhook,
+  ArrowRight,
+} from "lucide-react";
+import { motion } from "framer-motion";
 
-const baseTools = [
+type ToolCard = {
+  key: string;
+  title: string;
+  description: string;
+  icon: typeof Github;
+  to: string;
+  color: string;
+  bg: string;
+  stat?: string;
+};
+
+const baseTools: ToolCard[] = [
   {
-    key: 'github',
-    title: 'GitHub Analytics',
-    description: 'Search developers and view their open-source metrics.',
+    key: "github",
+    title: "GitHub Analytics",
+    description: "Search developers and view their open-source metrics.",
     icon: Github,
-    to: '/github',
-    color: 'text-blue-400',
-    bg: 'bg-blue-400/10',
+    to: "/github",
+    color: "text-blue-400",
+    bg: "bg-blue-400/10",
   },
   {
-    key: 'snippets',
-    title: 'Snippet Manager',
-    description: 'Store and manage your reusable code snippets.',
+    key: "snippets",
+    title: "Snippet Manager",
+    description: "Store and manage your reusable code snippets.",
     icon: Code2,
-    to: '/snippets',
-    color: 'text-purple-400',
-    bg: 'bg-purple-400/10',
+    to: "/snippets",
+    color: "text-purple-400",
+    bg: "bg-purple-400/10",
   },
   {
-    key: 'notes',
-    title: 'Developer Notes',
-    description: 'Markdown-based note-taking with live preview.',
+    key: "notes",
+    title: "Developer Notes",
+    description: "Markdown-based note-taking with live preview.",
     icon: StickyNote,
-    to: '/notes',
-    color: 'text-green-400',
-    bg: 'bg-green-400/10',
+    to: "/notes",
+    color: "text-green-400",
+    bg: "bg-green-400/10",
   },
   {
-    key: 'timer',
-    title: 'Focus Timer',
-    description: 'Boost your productivity with the Pomodoro technique.',
+    key: "timer",
+    title: "Focus Timer",
+    description: "Boost your productivity with the Pomodoro technique.",
     icon: Timer,
-    to: '/timer',
-    color: 'text-orange-400',
-    bg: 'bg-orange-400/10',
+    to: "/timer",
+    color: "text-orange-400",
+    bg: "bg-orange-400/10",
   },
   {
-    key: 'api',
-    title: 'API Tester',
-    description: 'Test and debug REST APIs safely within your dashboard.',
+    key: "api",
+    title: "API Tester",
+    description: "Test and debug REST APIs safely within your dashboard.",
     icon: Webhook,
-    to: '/api',
-    color: 'text-pink-400',
-    bg: 'bg-pink-400/10',
+    to: "/api",
+    color: "text-pink-400",
+    bg: "bg-pink-400/10",
   },
 ];
 
@@ -57,30 +75,34 @@ const container = {
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1
-    }
-  }
+      staggerChildren: 0.1,
+    },
+  },
 };
 
 const item = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 }
+  show: { opacity: 1, y: 0 },
 };
 
 export function Dashboard() {
-  const snippetsCount = useAppSelector(state => state.snippets.snippets.length);
-  const notesCount = useAppSelector(state => state.notes.notes.length);
-  const completedSessions = useAppSelector(state => state.timer.completedSessions);
+  const snippetsCount = useAppSelector(
+    (state) => state.snippets.snippets.length,
+  );
+  const notesCount = useAppSelector((state) => state.notes.notes.length);
+  const completedSessions = useAppSelector(
+    (state) => state.timer.completedSessions,
+  );
 
   const tools = useMemo(() => {
-    return baseTools.map(tool => {
-      if (tool.key === 'snippets') {
+    return baseTools.map((tool) => {
+      if (tool.key === "snippets") {
         return { ...tool, stat: `${snippetsCount} snippets` };
       }
-      if (tool.key === 'notes') {
+      if (tool.key === "notes") {
         return { ...tool, stat: `${notesCount} notes` };
       }
-      if (tool.key === 'timer') {
+      if (tool.key === "timer") {
         return { ...tool, stat: `${completedSessions} sessions` };
       }
       return tool;
@@ -90,11 +112,16 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-bold text-white tracking-tight">Welcome to DevFlow</h1>
-        <p className="text-gray-400 mt-2 text-lg">Your unified developer productivity hub. Everything you need in one place.</p>
+        <h1 className="text-4xl font-bold text-white tracking-tight">
+          Welcome to DevFlow
+        </h1>
+        <p className="text-gray-400 mt-2 text-lg">
+          Your unified developer productivity hub. Everything you need in one
+          place.
+        </p>
       </div>
 
-      <motion.div 
+      <motion.div
         variants={container}
         initial="hidden"
         animate="show"
@@ -102,14 +129,19 @@ export function Dashboard() {
       >
         {tools.map((tool) => (
           <motion.div key={tool.key} variants={item}>
-            <Link to={tool.to} className="card p-6 flex flex-col h-full group cursor-pointer hover:border-accent transition-colors">
+            <Link
+              to={tool.to}
+              className="card p-6 flex flex-col h-full group cursor-pointer hover:border-accent transition-colors"
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className={`p-3 rounded-xl ${tool.bg} ${tool.color}`}>
                   <tool.icon className="w-6 h-6" />
                 </div>
                 <ArrowRight className="w-5 h-5 text-gray-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">{tool.title}</h3>
+              <h3 className="text-xl font-bold text-white mb-2">
+                {tool.title}
+              </h3>
               <p className="text-gray-400 flex-1">{tool.description}</p>
               {tool.stat && (
                 <div className="mt-6 pt-4 border-t border-border flex items-center text-sm font-medium text-gray-300">

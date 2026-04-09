@@ -106,7 +106,9 @@ export function ApiTesterPage() {
           aria-label="API endpoint URL"
           aria-describedby="url-help"
         />
-        <div id="url-help" className="sr-only">Enter the full URL of the API endpoint you want to test</div>
+        <div id="url-help" className="sr-only">
+          Enter the full URL of the API endpoint you want to test
+        </div>
         <button
           onClick={handleSend}
           disabled={loading || !url}
@@ -125,7 +127,11 @@ export function ApiTesterPage() {
 
       {/* Request Options */}
       <div className="card overflow-hidden">
-        <div className="flex border-b border-border bg-background" role="tablist" aria-label="Request options">
+        <div
+          className="flex border-b border-border bg-background"
+          role="tablist"
+          aria-label="Request options"
+        >
           <button
             onClick={() => setActiveTab("headers")}
             className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === "headers" ? "text-accent border-b-2 border-accent" : "text-gray-400 hover:text-white"}`}
@@ -173,16 +179,30 @@ export function ApiTesterPage() {
             />
           )}
         </div>
-        <div id="headers-help" className="sr-only">Enter request headers in JSON format</div>
-        <div id="body-help" className="sr-only">Enter request body in JSON format</div>
+        <div id="headers-help" className="sr-only">
+          Enter request headers in JSON format
+        </div>
+        <div id="body-help" className="sr-only">
+          Enter request body in JSON format
+        </div>
       </div>
 
       {/* Response Area */}
       {response && (
-        <div className="card overflow-hidden flex flex-col h-96 md:h-[500px]" role="region" aria-labelledby="response-heading">
+        <div
+          className="card overflow-hidden flex flex-col h-96 md:h-[500px]"
+          role="region"
+          aria-labelledby="response-heading"
+        >
           <div className="p-4 border-b border-border bg-surface flex items-center justify-between">
-            <h3 id="response-heading" className="font-bold text-white">Response</h3>
-            <div className="flex gap-6 text-sm font-mono" aria-live="polite" aria-atomic="true">
+            <h3 id="response-heading" className="font-bold text-white">
+              Response
+            </h3>
+            <div
+              className="flex gap-6 text-sm font-mono"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <div className="flex gap-2">
                 <span className="text-gray-400">Status:</span>
                 <span
@@ -195,7 +215,10 @@ export function ApiTesterPage() {
               </div>
               <div className="flex gap-2">
                 <span className="text-gray-400">Time:</span>
-                <span className="text-green-400 font-bold" aria-label={`Response time ${response.time} milliseconds`}>
+                <span
+                  className="text-green-400 font-bold"
+                  aria-label={`Response time ${response.time} milliseconds`}
+                >
                   {response.time} ms
                 </span>
               </div>
@@ -204,8 +227,14 @@ export function ApiTesterPage() {
 
           <div className="flex-1 flex overflow-hidden">
             {response.error ? (
-              <div className="flex-1 p-6 flex flex-col items-center justify-center text-red-400 gap-4" role="alert">
-                <AlertCircle className="w-12 h-12 opacity-50" aria-hidden="true" />
+              <div
+                className="flex-1 p-6 flex flex-col items-center justify-center text-red-400 gap-4"
+                role="alert"
+              >
+                <AlertCircle
+                  className="w-12 h-12 opacity-50"
+                  aria-hidden="true"
+                />
                 <p className="text-center max-w-md">{response.error}</p>
               </div>
             ) : (
@@ -227,7 +256,11 @@ export function ApiTesterPage() {
                   <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">
                     Headers
                   </h4>
-                  <div className="space-y-2" role="list" aria-label="Response headers">
+                  <div
+                    className="space-y-2"
+                    role="list"
+                    aria-label="Response headers"
+                  >
                     {Object.entries(response.headers).map(([key, value]) => (
                       <div key={key} className="text-xs" role="listitem">
                         <span className="font-bold text-gray-400">{key}:</span>

@@ -4,10 +4,16 @@ import { addSnippet, updateSnippet, deleteSnippet, fetchSnippets, Snippet } from
 import { useDebounce } from '../../hooks/useDebounce';
 import { Search, Plus, Trash2, Edit2, Copy, Check, Tag, Code2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 export function SnippetsPage() {
   const dispatch = useAppDispatch();
   const { snippets, status } = useAppSelector(state => state.snippets);
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({
+    isOpen: false,
+    id: '',
+  });
 
   useEffect(() => {
     if (status === 'idle') {
@@ -171,10 +177,7 @@ export function SnippetsPage() {
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm('Delete this snippet?')) {
-                          // @ts-ignore
-                          dispatch(deleteSnippet(snippet.id));
-                        }
+                        setDeleteConfirm({ isOpen: true, id: snippet.id });
                       }}
                       className="p-2 hover:bg-border rounded text-gray-400 hover:text-red-400 transition-colors"
                       title="Delete snippet"
@@ -272,6 +275,22 @@ export function SnippetsPage() {
           </motion.div>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ ...deleteConfirm, isOpen: false })}
+        onConfirm={() => {
+          if (deleteConfirm.id) {
+            // @ts-ignore
+            dispatch(deleteSnippet(deleteConfirm.id));
+            setDeleteConfirm({ isOpen: false, id: '' });
+          }
+        }}
+        title="Delete Snippet"
+        message="Are you sure you want to delete this snippet? This action cannot be undone."
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

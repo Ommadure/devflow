@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 export function NotesPage() {
   const dispatch = useAppDispatch();
@@ -14,6 +15,10 @@ export function NotesPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isPreview, setIsPreview] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({
+    isOpen: false,
+    id: '',
+  });
 
   useEffect(() => {
     if (status === 'idle') {
@@ -65,9 +70,14 @@ export function NotesPage() {
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this note?')) {
+    setDeleteConfirm({ isOpen: true, id });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm.id) {
       // @ts-ignore
-      dispatch(deleteNote(id));
+      dispatch(deleteNote(deleteConfirm.id));
+      setDeleteConfirm({ isOpen: false, id: '' });
     }
   };
 
@@ -182,6 +192,15 @@ export function NotesPage() {
           </div>
         )}
       </div>
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ ...deleteConfirm, isOpen: false })}
+        onConfirm={confirmDelete}
+        title="Delete Note"
+        message="Are you sure you want to delete this note? This action cannot be undone."
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

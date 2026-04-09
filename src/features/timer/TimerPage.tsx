@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { addCompletedSession, resetSessions, fetchStats } from './timerSlice';
 import { Play, Pause, Square, RotateCcw, Timer, Coffee, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 
 const FOCUS_TIME = 25 * 60;
 const BREAK_TIME = 5 * 60;
@@ -9,6 +10,8 @@ const BREAK_TIME = 5 * 60;
 export function TimerPage() {
   const dispatch = useAppDispatch();
   const { completedSessions, status } = useAppSelector(state => state.timer);
+
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'idle') {
@@ -141,12 +144,7 @@ export function TimerPage() {
         <div className="flex items-center gap-4">
           <div className="text-3xl font-bold text-accent">{completedSessions}</div>
           <button 
-            onClick={() => {
-              if (confirm('Reset session history?')) {
-                // @ts-ignore
-                dispatch(resetSessions());
-              }
-            }}
+            onClick={() => setIsConfirmOpen(true)}
             className="p-2 text-gray-500 hover:text-red-400 transition-colors"
             title="Clear history"
           >
@@ -154,6 +152,19 @@ export function TimerPage() {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={() => {
+          // @ts-ignore
+          dispatch(resetSessions());
+          setIsConfirmOpen(false);
+        }}
+        title="Reset History"
+        message="Are you sure you want to reset your session history? This will clear all your completed focus sessions."
+        confirmLabel="Reset"
+      />
     </div>
   );
 }

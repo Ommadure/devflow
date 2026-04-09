@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Mail, Loader2 } from 'lucide-react';
+import { Activity, Mail, Loader2, CheckCircle } from 'lucide-react';
+import { Modal } from '../../components/ui/Modal';
 
 export function AuthPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +23,7 @@ export function AuthPage() {
         },
       });
       if (error) throw error;
-      alert('Check your email for the magic login link!');
+      setShowSuccessModal(true);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -86,6 +88,27 @@ export function AuthPage() {
           </p>
         </div>
       </div>
+
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="Email Sent"
+      >
+        <div className="flex flex-col items-center text-center gap-4">
+          <div className="p-4 rounded-full bg-green-500/10 text-green-500">
+            <CheckCircle className="w-8 h-8" />
+          </div>
+          <p className="text-gray-300 text-lg leading-relaxed">
+            Check your email for the magic login link we just sent to <span className="text-white font-bold">{email}</span>.
+          </p>
+          <button
+            onClick={() => setShowSuccessModal(false)}
+            className="btn-primary w-full mt-6 py-3"
+          >
+            Got it
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -2,6 +2,39 @@ import { useMemo, useState } from 'react';
 import { Play, Loader2, AlertCircle } from 'lucide-react';
 import { executeRequest, ApiResponse } from './apiUtils';
 
+const formatResponseBody = (data: ApiResponse['data']) => {
+  if (typeof data === 'string') return data;
+  if (data == null) return '';
+  if (typeof data === 'bigint') return data.toString();
+
+  try {
+    const seen = new WeakSet<object>();
+
+    return JSON.stringify(
+      data,
+      (_key, value) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+
+        if (value && typeof value === 'object') {
+          if (seen.has(value)) {
+            return '[Circular]';
+          }
+
+          seen.add(value);
+        }
+
+        return value;
+      },
+      2
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown serialization error';
+    return `Unable to display response body: ${message}`;
+  }
+};
+
 export function ApiTesterPage() {
   const [url, setUrl] = useState('https://jsonplaceholder.typicode.com/posts/1');
   const [method, setMethod] = useState('GET');
@@ -15,9 +48,7 @@ export function ApiTesterPage() {
 
   const responseBodyText = useMemo(() => {
     if (!response || response.error) return '';
-    return typeof response.data === 'string' 
-      ? response.data 
-      : JSON.stringify(response.data, null, 2);
+    return formatResponseBody(response.data);
   }, [response]);
 
   const handleSend = async () => {

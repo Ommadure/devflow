@@ -17,7 +17,6 @@ export function GithubAnalytics() {
     queryKey: ['githubUser', debouncedSearch],
     queryFn: () => fetchGithubUser(debouncedSearch),
     enabled: debouncedSearch.length > 0,
-    staleTime: 5 * 60 * 1000,
     retry: false,
   });
 
@@ -28,7 +27,6 @@ export function GithubAnalytics() {
     queryKey: ['githubRepos', debouncedSearch],
     queryFn: () => fetchGithubRepos(debouncedSearch),
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
   });
 
   return (

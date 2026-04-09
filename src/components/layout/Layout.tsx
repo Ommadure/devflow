@@ -10,17 +10,17 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+const navItems = [
+  { to: '/', icon: Activity, label: 'Dashboard' },
+  { to: '/github', icon: Github, label: 'GitHub Analytics' },
+  { to: '/snippets', icon: Code2, label: 'Snippets' },
+  { to: '/notes', icon: StickyNote, label: 'Notes' },
+  { to: '/timer', icon: Timer, label: 'Timer' },
+  { to: '/api', icon: Webhook, label: 'API Tester' },
+];
+
 export function Layout({ children }: LayoutProps) {
   const user = useAppSelector(state => state.auth.user);
-
-  const navItems = [
-    { to: '/', icon: Activity, label: 'Dashboard' },
-    { to: '/github', icon: Github, label: 'GitHub Analytics' },
-    { to: '/snippets', icon: Code2, label: 'Snippets' },
-    { to: '/notes', icon: StickyNote, label: 'Notes' },
-    { to: '/timer', icon: Timer, label: 'Timer' },
-    { to: '/api', icon: Webhook, label: 'API Tester' },
-  ];
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

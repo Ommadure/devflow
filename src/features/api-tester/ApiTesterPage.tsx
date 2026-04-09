@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Play, Loader2, AlertCircle } from 'lucide-react';
 import { executeRequest, ApiResponse } from './apiUtils';
 
@@ -12,6 +12,13 @@ export function ApiTesterPage() {
   
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
+
+  const responseBodyText = useMemo(() => {
+    if (!response || response.error) return '';
+    return typeof response.data === 'string' 
+      ? response.data 
+      : JSON.stringify(response.data, null, 2);
+  }, [response]);
 
   const handleSend = async () => {
     if (!url.trim()) return;
@@ -134,9 +141,7 @@ export function ApiTesterPage() {
                 <div className="flex-1 overflow-auto bg-background p-4 border-r border-border/50">
                   <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Body</h4>
                   <pre className="font-mono text-sm text-gray-300">
-                    {typeof response.data === 'string' 
-                      ? response.data 
-                      : JSON.stringify(response.data, null, 2)}
+                    {responseBodyText}
                   </pre>
                 </div>
                 <div className="w-full md:w-64 overflow-auto bg-surface p-4">

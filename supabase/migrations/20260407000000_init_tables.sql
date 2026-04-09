@@ -10,6 +10,9 @@ CREATE TABLE snippets (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Index for user-scoped sorting by updated time
+CREATE INDEX snippets_user_updated_idx ON snippets (user_id, updated_at DESC);
+
 -- Enable RLS for snippets
 ALTER TABLE snippets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own snippets" ON snippets FOR SELECT USING (auth.uid() = user_id);
@@ -28,6 +31,9 @@ CREATE TABLE notes (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Index for user-scoped sorting by updated time
+CREATE INDEX notes_user_updated_idx ON notes (user_id, updated_at DESC);
 
 -- Enable RLS for notes
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;

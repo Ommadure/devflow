@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../../hooks/redux';
 import { addNote, updateNote, deleteNote, setActiveNote, fetchNotes, Note } from './notesSlice';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -52,10 +52,15 @@ export function NotesPage() {
     }
   }, [debouncedTitle, debouncedContent, activeNote, dispatch]);
 
-  const filteredNotes = notes.filter(n => 
-    n.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    n.content.toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  const filteredNotes = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return notes
+      .filter(n => 
+        n.title.toLowerCase().includes(term) || 
+        n.content.toLowerCase().includes(term)
+      )
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [notes, searchTerm]);
 
   const handleCreateNote = () => {
     // @ts-ignore
@@ -71,7 +76,7 @@ export function NotesPage() {
     }
   };
 
-  const sanitizedContent = DOMPurify.sanitize(localContent);
+  const sanitizedContent = useMemo(() => DOMPurify.sanitize(localContent), [localContent]);
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-6">

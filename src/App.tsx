@@ -12,6 +12,7 @@ const NotesPage = lazy(() => import('./features/notes/NotesPage').then(m => ({ d
 const TimerPage = lazy(() => import('./features/timer/TimerPage').then(m => ({ default: m.TimerPage })));
 const ApiTesterPage = lazy(() => import('./features/api-tester/ApiTesterPage').then(m => ({ default: m.ApiTesterPage })));
 const AuthPage = lazy(() => import('./features/auth/AuthPage').then(m => ({ default: m.AuthPage })));
+const AuthCallback = lazy(() => import('./pages/AuthCallback').then(m => ({ default: m.default })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-full min-h-[200px]">
@@ -89,6 +90,7 @@ function App() {
               <Route path="/notes" element={<NotesPage />} />
               <Route path="/timer" element={<TimerPage />} />
               <Route path="/api" element={<ApiTesterPage />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

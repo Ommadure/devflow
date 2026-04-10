@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   X,
+  Settings,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -27,6 +28,7 @@ const navItems = [
   { to: "/notes", icon: StickyNote, label: "Notes" },
   { to: "/timer", icon: Timer, label: "Timer" },
   { to: "/api", icon: Webhook, label: "API Tester" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function Layout({ children }: LayoutProps) {

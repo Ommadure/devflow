@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Activity, Mail, Loader2, Lock, Eye, EyeOff } from 'lucide-react';
 
-type AuthMode = 'signin' | 'signup' | 'forgot' | 'magiclink';
+type AuthMode = 'signin' | 'signup' | 'magiclink';
 
 const PASSWORD_RULES = {
   minLength: 8,
@@ -101,14 +101,15 @@ export function AuthPage() {
     setLoading(true);
     setError(null);
     try {
-      const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
+      const { error: authError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.origin },
       });
       if (authError) throw authError;
-      setInfo('Password reset link sent! Check your email.');
-      setMode('signin');
+      setInfo('Password reset link sent to your email! Check your inbox.');
+      setResendCooldown(60);
     } catch (err: any) {
-      setError(err.message || 'Failed to send reset email.');
+      setError(err.message || 'Failed to send reset link.');
     } finally {
       setLoading(false);
     }
@@ -145,7 +146,7 @@ export function AuthPage() {
           <Activity className="w-12 h-12 text-accent" />
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
-          {mode === 'signup' ? 'Create your account' : mode === 'forgot' ? 'Reset your password' : mode === 'magiclink' ? 'Sign in with magic link' : 'Sign in to DevFlow'}
+          {mode === 'signup' ? 'Create your account' : mode === 'magiclink' ? 'Sign in with magic link' : 'Sign in to DevFlow'}
         </h2>
       </div>
 
@@ -171,7 +172,6 @@ export function AuthPage() {
           <form className="space-y-5" onSubmit={(e) => {
             if (mode === 'signin') return handleSignIn(e);
             if (mode === 'signup') return handleSignUp(e);
-            if (mode === 'forgot') return handleForgotPassword(e);
             if (mode === 'magiclink') return handleMagicLink(e);
           }}>
             {error && (
@@ -202,7 +202,7 @@ export function AuthPage() {
               </div>
             </div>
 
-            {mode !== 'forgot' && mode !== 'magiclink' && (
+            {mode !== 'magiclink' && (
               <div>
                 <label className="block text-sm font-medium text-gray-300">Password</label>
                 <div className="mt-1 relative">
@@ -265,8 +265,6 @@ export function AuthPage() {
                 <Loader2 className="w-5 h-5 animate-spin mx-auto" />
               ) : mode === 'signup' ? (
                 'Create account'
-              ) : mode === 'forgot' ? (
-                'Send reset link'
               ) : mode === 'magiclink' ? (
                 resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Send magic link'
               ) : (
@@ -280,7 +278,7 @@ export function AuthPage() {
               <>
                 <button
                   type="button"
-                  onClick={() => { setMode('forgot'); setError(null); setInfo(null); }}
+                  onClick={(e) => { e.preventDefault(); handleForgotPassword(e as any); }}
                   className="block w-full text-gray-400 hover:text-white"
                 >
                   Forgot your password?
@@ -300,11 +298,6 @@ export function AuthPage() {
                   Sign in
                 </button>
               </p>
-            )}
-            {mode === 'forgot' && (
-              <button type="button" onClick={() => setMode('signin')} className="text-gray-400 hover:text-white">
-                Back to sign in
-              </button>
             )}
             {mode === 'magiclink' && (
               <button type="button" onClick={() => { setMode('signin'); setError(null); setInfo(null); }} className="text-gray-400 hover:text-white">

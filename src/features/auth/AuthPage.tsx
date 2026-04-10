@@ -1,16 +1,38 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Activity, Mail, Loader2, CheckCircle } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
+
+const RESEND_COOLDOWN_SECONDS = 60;
 
 export function AuthPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (cooldownSeconds > 0) {
+      setError(`Please wait ${cooldownSeconds} seconds before requesting a new magic link.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -22,10 +44,19 @@ export function AuthPage() {
           shouldCreateUser: true,
         },
       });
-      if (error) throw error;
+
+      if (error) {
+        if (error.status === 429 || error.message.toLowerCase().includes('rate limit')) {
+          throw new Error('Too many requests. Please wait a minute before trying again.');
+        }
+        throw error;
+      }
+
       setShowSuccessModal(true);
+      setCooldownSeconds(RESEND_COOLDOWN_SECONDS);
     } catch (err: any) {
-      setError(err.message);
+      const message = err.message || 'Something went wrong. Please try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -50,7 +81,7 @@ export function AuthPage() {
                 {error}
               </div>
             )}
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-300">
                 Email address
@@ -72,11 +103,13 @@ export function AuthPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary w-full flex justify-center py-2.5"
+              disabled={loading || cooldownSeconds > 0}
+              className="btn-primary w-full flex justify-center py-2.5 disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
+              ) : cooldownSeconds > 0 ? (
+                `Resend in ${cooldownSeconds}s`
               ) : (
                 'Send magic link'
               )}

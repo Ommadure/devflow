@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from './hooks/redux';
 import { setUser } from './features/auth/authSlice';
@@ -21,26 +21,53 @@ const PageLoader = () => (
 
 function App() {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, isLoading, user } = useAppSelector((state) => state.auth);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        dispatch(setUser(session?.user ?? null));
-      })
-      .catch((err) => {
-        console.error('Auth initialization error:', err);
-        dispatch(setUser(null)); // Ensure loading state is cleared
-      });
+    let isMounted = true;
 
-    // Listen for changes on auth state (logged in, signed out, etc.)
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth session error:', error.message);
+          if (isMounted) {
+            setAuthError(error.message);
+            dispatch(setUser(null));
+          }
+          return;
+        }
+
+        if (isMounted) {
+          dispatch(setUser(session?.user ?? null));
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        if (isMounted) {
+          dispatch(setUser(null));
+        }
+      }
+    };
+
+    initializeAuth();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      dispatch(setUser(session?.user ?? null));
+      if (isMounted) {
+        dispatch(setUser(session?.user ?? null));
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [dispatch]);
+
+  if (authError) {
+    console.log('Auth error state:', authError);
+  }
 
   return (
     <Router>

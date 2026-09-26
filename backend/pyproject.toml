@@ -43,7 +43,6 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-# SQLAlchemy's asyncio layer runs code inside greenlets; without this, coverage
-# misses lines executed after DB awaits and under-reports async routes.
-concurrency = ["greenlet", "thread"]
+# Phase 1 adds concurrency = ["greenlet", "thread"] together with SQLAlchemy: its asyncio
+# layer runs code inside greenlets, and coverage must be told or it under-reports.
 source = ["app"]

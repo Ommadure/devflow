@@ -22,7 +22,9 @@ backend interview topic.
   in the response body and kept **only in frontend memory**.
 - **Refresh token:** 32 random bytes in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie
   scoped to `/api/v1/auth`, valid 30 days. Stored as a SHA-256 hash. **Rotated** on every
-  use; presenting a revoked token revokes its whole family (reuse detection).
+  use; presenting a revoked token revokes its whole family (reuse detection). A token
+  rotated in the last 30 seconds is exempt — that's two tabs refreshing at once, not a
+  thief — and gets a retryable `REFRESH_TOKEN_ROTATED` instead.
 - **Same origin:** the browser reaches the API through `/api` on its own origin (Vite
   proxy locally, Vercel rewrite in production), so the cookie is first-party.
 - **CSRF:** only `/auth/refresh` and `/auth/logout` read the cookie; `SameSite=Lax` plus an

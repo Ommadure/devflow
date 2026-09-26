@@ -63,8 +63,8 @@ insights (P6).
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Scaffold: repo, spec, ADRs, empty backend and frontend, Docker Compose, CI | 🟡 in progress |
-| 1 | Backend foundation and authentication | ⏳ |
+| 0 | Scaffold: repo, spec, ADRs, empty backend and frontend, Docker Compose, CI | ✅ |
+| 1 | Backend foundation and authentication | 🟡 in review |
 | 2 | Frontend shell and auth UI | ⏳ |
 | 3 | Snippets, notes, timer, dashboard | ⏳ |
 | 4 | pgvector, embeddings, Taskiq worker, hybrid search | ⏳ |
@@ -409,9 +409,15 @@ development), `SameSite=Lax`, `Path=/api/v1/auth`, lifetime `REFRESH_TOKEN_TTL_D
 yields no usable tokens.
 
 - **Rotation:** every `/auth/refresh` revokes the presented token and issues a new one in
-  the same `family_id`.
+  the same `family_id`. The token row is read with `SELECT … FOR UPDATE`, so two refreshes
+  of one token run one after the other and can never both succeed.
 - **Reuse detection:** presenting an already-revoked token means it was copied; the whole
   family is revoked, signing out every device that descends from that login.
+- **Grace window:** two tabs opening at once both present the same cookie, and the loser
+  is not a thief. A token rotated less than `REFRESH_REUSE_GRACE_SECONDS` (default 30) ago
+  gets 401 `REFRESH_TOKEN_ROTATED` *without* revoking anything; the browser already holds
+  the successor cookie, so the client simply retries once. Reuse after the window is
+  treated as theft.
 - **CSRF:** `/auth/refresh` and `/auth/logout` are the only cookie-authenticated routes.
   `SameSite=Lax` stops browsers from attaching the cookie to cross-site POSTs, and the
   API also rejects requests whose `Origin` is not in `CORS_ORIGINS`. Every other route
@@ -429,6 +435,13 @@ yields no usable tokens.
 Error codes: `TOKEN_EXPIRED`, `INVALID_TOKEN`. The reason a signature failed is never
 echoed to the caller.
 
+**Changing the password** (`POST /me/password`) needs the current password, revokes
+*every* refresh-token family, and returns a fresh session (new access token and cookie) for
+the caller. It revokes all families rather than "all but this one" because the route sees
+only the bearer token — the cookie's path keeps it away — so it cannot tell which family is
+the caller's. A wrong current password is 422 `INVALID_CURRENT_PASSWORD`, never 401: the
+frontend treats 401 as "session expired" and would try to refresh.
+
 **Trade-off Om should be able to state:** access tokens are stateless, so after a password
 change or logout an already-issued access token keeps working until it expires (≤ 15 min).
 Short lifetimes are what make that acceptable.
@@ -442,11 +455,12 @@ Every failure, deliberate or not, returns one shape:
              "details": {}, "request_id": "b6f1…" } }
 ```
 
-`AppError` subclasses: `NotFoundError` (404), `UnauthorizedError` (401), `ConflictError`
-(409), `ValidationFailedError` (422), `RateLimitedError` and `QuotaExceededError` (429 — a
+`AppError` subclasses: `NotFoundError` (404), `UnauthorizedError` (401, with
+`WWW-Authenticate: Bearer`), `ForbiddenError` (403), `ConflictError` (409), `ValidationFailedError` (422), `RateLimitedError` and `QuotaExceededError` (429 — a
 `retry_after` in `details` becomes a `Retry-After` header), `UpstreamError` (502),
 `ServiceUnavailableError` (503). FastAPI's validation errors and Starlette's 404/405 are
-rewritten into the same shape. Stack traces never reach the client.
+rewritten into the same shape — without FastAPI's default echo of each invalid `input`,
+which would include a rejected password. Stack traces never reach the client.
 
 ### 8.5 Observability (P1)
 
@@ -481,8 +495,10 @@ rewritten into the same shape. Stack traces never reach the client.
 
 ### 8.8 Rate limiting and quotas
 
-- P1: a Redis-backed limiter behind a `RateLimiter` protocol. Auth routes: login 10/min per
-  IP and 5/min per email, register 5/hour per IP.
+- P1: a fixed-window Redis limiter behind a `RateLimiter` protocol (INCR + EXPIRE NX in
+  one MULTI/EXEC, so a counter can never lose its expiry). Login 10/min per IP and 5/min
+  per email (hashed in the key), register 5/hour per IP, password change 5 per 15 min
+  per user.
 - P5: upgraded to a sliding window used as a dependency, keyed by user id (IP for
   unauthenticated routes). Defaults: **120/min** general, **10/min** AI routes, **30/min**
   API-tester proxy.
@@ -559,15 +575,15 @@ and use the error format in 8.4. Lists use cursor pagination:
 |---|---|---|---|
 | POST | `/auth/register` | public; `{ email, password }` → 201 `{ access_token, expires_in, user }` + refresh cookie; 409 `EMAIL_TAKEN` | P1 |
 | POST | `/auth/login` | public; same response; 401 `INVALID_CREDENTIALS` | P1 |
-| POST | `/auth/refresh` | cookie; rotates the refresh token; 401 `INVALID_REFRESH_TOKEN` | P1 |
-| POST | `/auth/logout` | cookie; revokes this device's token, clears the cookie; 204 | P1 |
+| POST | `/auth/refresh` | cookie; rotates the refresh token; 401 `INVALID_REFRESH_TOKEN` or `REFRESH_TOKEN_ROTATED` (retry once); 403 `ORIGIN_NOT_ALLOWED` | P1 |
+| POST | `/auth/logout` | cookie; revokes this device's session family, clears the cookie; always 204 | P1 |
 
 ### Account
 
 | Method | Path | Notes | Phase |
 |---|---|---|---|
 | GET | `/me` | `{ id, email, github_username, created_at }` | P1 |
-| POST | `/me/password` | `{ current_password, new_password }`; revokes every other session | P1 |
+| POST | `/me/password` | `{ current_password, new_password }` → a fresh session; revokes every other one; 422 `INVALID_CURRENT_PASSWORD` | P1 |
 | PATCH | `/me` | set `github_username` | P6 |
 | GET | `/dashboard/summary` | counts of snippets, notes, focus sessions | P3 |
 
@@ -639,7 +655,7 @@ has `user_id uuid not null references users on delete cascade` and an index on `
 
 | Table | Columns | Phase |
 |---|---|---|
-| `users` | `id uuid pk`, `email citext unique`, `password_hash text`, `github_username text null`, `created_at`, `updated_at` | P1 |
+| `users` | `id uuid pk`, `email text unique` (stored lowercased, enforced by a check constraint), `password_hash text`, `github_username text null`, `created_at`, `updated_at` | P1 |
 | `refresh_tokens` | `id uuid pk`, `user_id`, `token_hash text unique`, `family_id uuid`, `expires_at`, `revoked_at null`, `replaced_by_id null`, `created_at`; index on `family_id` | P1 |
 | `snippets` | `id uuid pk`, `user_id`, `title text`, `description text null`, `code text`, `language text null`, `tags text[] default '{}'`, `favorite boolean default false`, `created_at`, `updated_at` | P3 |
 | `notes` | `id uuid pk`, `user_id`, `title text`, `content text`, `created_at`, `updated_at` | P3 |
@@ -830,7 +846,7 @@ keyword, semantic and hybrid; write timestamped JSON and a Markdown table for th
 ### Local
 
 ```bash
-docker compose up -d                                   # Postgres on 5434, Redis on 6380
+docker compose up -d postgres redis                    # Postgres on 5434, Redis on 6380
 cd backend && cp -n .env.example .env                  # -n: never overwrite an existing .env
 uv run alembic upgrade head && uv run uvicorn app.main:app --reload   # API on :8000 (P1+)
 cd frontend && npm install && npm run dev              # app on :5173, /api proxied to :8000
@@ -868,7 +884,7 @@ build, `npm audit`. CI holds no real credentials.
 |---|---|
 | none required (same-origin `/api`) | `APP_ENV`, `LOG_LEVEL` |
 | | `DATABASE_URL`, `DATABASE_DIRECT_URL`, `REDIS_URL` |
-| | `JWT_SECRET`, `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `COOKIE_SECURE` |
+| | `JWT_SECRET`, `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REFRESH_REUSE_GRACE_SECONDS`, `COOKIE_SECURE` |
 | | `CORS_ORIGINS` |
 | | `LLM_PROVIDER`, `LLM_MODEL`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
 | | `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIM` |

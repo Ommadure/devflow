@@ -1,0 +1,32 @@
+# Secrets (.env plus editor backups like .env.save / .env.swp; templates stay tracked)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Scratch evaluation runs (committed results live in evals/search/results/)
+evals/**/tmp/

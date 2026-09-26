@@ -1,0 +1,37 @@
+# Local development services: `docker compose up -d`
+#   Postgres + pgvector  localhost:5434  (user/password/db: devflow)
+#   Redis                localhost:6380
+# Host ports avoid 5432 (a native Postgres), and ReviewPilot's 5433 / 6379, so both
+# stacks can run at once. Containers still reach each other on the default ports.
+# The API joins this file in Phase 1; the Taskiq worker and scheduler in Phase 4.
+
+services:
+  postgres:
+    # Postgres 16 with the pgvector extension preinstalled (needed from Phase 4).
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: devflow
+      POSTGRES_PASSWORD: devflow
+      POSTGRES_DB: devflow
+    ports:
+      - "${POSTGRES_HOST_PORT:-5434}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devflow -d devflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_HOST_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:

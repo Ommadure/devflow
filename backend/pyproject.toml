@@ -4,7 +4,17 @@ version = "0.1.0"
 description = "DevFlow API: FastAPI backend for the DevFlow developer dashboard"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "alembic>=1.14",
+    "argon2-cffi>=23.1",
+    "asyncpg>=0.30",
+    "email-validator>=2.2",
     "fastapi>=0.115",
+    "pydantic-settings>=2.6",
+    "pyjwt>=2.10",
+    "redis>=5.2",
+    "sentry-sdk>=2.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "structlog>=24.4",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -43,6 +53,10 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-# Phase 1 adds concurrency = ["greenlet", "thread"] together with SQLAlchemy: its asyncio
-# layer runs code inside greenlets, and coverage must be told or it under-reports.
+# SQLAlchemy's asyncio layer runs code inside greenlets; without this, coverage
+# misses lines executed after DB awaits and under-reports async routes.
+concurrency = ["greenlet", "thread"]
 source = ["app"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "\\.\\.\\."]

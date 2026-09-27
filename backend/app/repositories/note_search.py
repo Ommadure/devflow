@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Note, NoteChunk
 from app.repositories._rrf import fuse
+from app.repositories._vector import scan_past_other_users
 
 BRANCH_LIMIT = 20
 
@@ -66,6 +67,7 @@ async def search_chunks(
     fused = fuse(keyword, semantic)
     if fused is None:  # unreachable: both branches are always present here
         return []
+    await scan_past_other_users(session)
     rows = await session.execute(
         select(NoteChunk, Note.title, fused.c.score, semantic.c.distance)
         .join(fused, NoteChunk.id == fused.c.id)

@@ -1,0 +1,661 @@
+# The corpus: 60 snippets the way a developer actually saves them — terse titles, some with
+# no description, tags only sometimes. Ids are stable names the queries refer to.
+
+- id: js-debounce
+  title: Debounce helper
+  description: Wait until calls stop for `ms` before running
+  language: javascript
+  tags: [timing]
+  code: |
+    export function debounce(fn, ms = 300) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), ms);
+      };
+    }
+
+- id: js-throttle
+  title: throttle
+  language: javascript
+  code: |
+    export function throttle(fn, limit) {
+      let waiting = false;
+      return (...args) => {
+        if (waiting) return;
+        fn(...args);
+        waiting = true;
+        setTimeout(() => (waiting = false), limit);
+      };
+    }
+
+- id: ts-use-debounced-value
+  title: useDebouncedValue
+  description: React hook for search inputs
+  language: typescript
+  tags: [react, hooks]
+  code: |
+    export function useDebouncedValue<T>(value: T, delay = 300): T {
+      const [debounced, setDebounced] = useState(value);
+      useEffect(() => {
+        const id = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(id);
+      }, [value, delay]);
+      return debounced;
+    }
+
+- id: js-deep-clone
+  title: Deep clone an object
+  language: javascript
+  code: |
+    // Handles Dates, Maps, Sets and cycles; functions and DOM nodes throw.
+    const copy = structuredClone(original);
+
+- id: js-fetch-retry
+  title: fetchWithRetry
+  description: Exponential backoff for flaky endpoints
+  language: javascript
+  tags: [http]
+  code: |
+    export async function fetchWithRetry(url, options = {}, attempts = 3) {
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const res = await fetch(url, options);
+          if (res.status < 500) return res;
+        } catch (err) {
+          if (i === attempts - 1) throw err;
+        }
+        await new Promise((r) => setTimeout(r, 2 ** i * 500));
+      }
+      throw new Error(`Gave up on ${url}`);
+    }
+
+- id: js-abort-timeout
+  title: fetch with a timeout
+  language: javascript
+  tags: [http]
+  code: |
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    // Older browsers:
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 5000);
+    await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(id));
+
+- id: ts-sleep
+  title: sleep
+  language: typescript
+  code: |
+    export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+- id: js-group-by
+  title: Group array items by key
+  language: javascript
+  code: |
+    const byTeam = Object.groupBy(people, (p) => p.team);
+    // Before ES2024:
+    const grouped = people.reduce((acc, p) => {
+      (acc[p.team] ??= []).push(p);
+      return acc;
+    }, {});
+
+- id: js-unique-array
+  title: Dedupe array
+  language: javascript
+  code: |
+    const unique = [...new Set(items)];
+    const uniqueById = [...new Map(users.map((u) => [u.id, u])).values()];
+
+- id: js-chunk-array
+  title: chunk
+  language: javascript
+  code: |
+    export const chunk = (arr, size) =>
+      Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
+        arr.slice(i * size, i * size + size),
+      );
+
+- id: ts-local-storage-hook
+  title: useLocalStorage
+  language: typescript
+  tags: [react, hooks]
+  code: |
+    export function useLocalStorage<T>(key: string, initial: T) {
+      const [value, setValue] = useState<T>(() => {
+        const raw = localStorage.getItem(key);
+        return raw === null ? initial : (JSON.parse(raw) as T);
+      });
+      useEffect(() => localStorage.setItem(key, JSON.stringify(value)), [key, value]);
+      return [value, setValue] as const;
+    }
+
+- id: js-copy-clipboard
+  title: Copy text button
+  language: javascript
+  code: |
+    async function copy(text) {
+      await navigator.clipboard.writeText(text);
+      toast("Copied");
+    }
+
+- id: js-format-currency
+  title: Format money
+  language: javascript
+  tags: [intl]
+  code: |
+    const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
+    inr.format(123456.5); // ₹1,23,456.50
+
+- id: js-relative-time
+  title: timeAgo
+  language: javascript
+  tags: [intl, dates]
+  code: |
+    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+    export function timeAgo(date) {
+      const minutes = Math.round((date - Date.now()) / 60000);
+      if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
+      const hours = Math.round(minutes / 60);
+      if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+      return rtf.format(Math.round(hours / 24), "day");
+    }
+
+- id: ts-event-emitter
+  title: Typed event emitter
+  language: typescript
+  code: |
+    type Handler<T> = (payload: T) => void;
+    export class Emitter<Events extends Record<string, unknown>> {
+      private handlers: { [K in keyof Events]?: Handler<Events[K]>[] } = {};
+      on<K extends keyof Events>(event: K, handler: Handler<Events[K]>) {
+        (this.handlers[event] ??= []).push(handler);
+        return () => this.off(event, handler);
+      }
+      off<K extends keyof Events>(event: K, handler: Handler<Events[K]>) {
+        this.handlers[event] = this.handlers[event]?.filter((h) => h !== handler);
+      }
+      emit<K extends keyof Events>(event: K, payload: Events[K]) {
+        this.handlers[event]?.forEach((h) => h(payload));
+      }
+    }
+
+- id: js-query-string
+  title: Read and build query params
+  language: javascript
+  code: |
+    const params = new URLSearchParams(location.search);
+    const page = Number(params.get("page") ?? 1);
+    params.set("page", String(page + 1));
+    history.replaceState(null, "", `?${params}`);
+
+- id: ts-use-click-outside
+  title: useOnClickOutside
+  language: typescript
+  tags: [react, hooks]
+  code: |
+    export function useOnClickOutside(ref: RefObject<HTMLElement>, handler: () => void) {
+      useEffect(() => {
+        const listener = (e: PointerEvent) => {
+          if (!ref.current?.contains(e.target as Node)) handler();
+        };
+        document.addEventListener("pointerdown", listener);
+        return () => document.removeEventListener("pointerdown", listener);
+      }, [ref, handler]);
+    }
+
+- id: js-memoize
+  title: memoize
+  language: javascript
+  code: |
+    export function memoize(fn) {
+      const cache = new Map();
+      return (arg) => {
+        if (!cache.has(arg)) cache.set(arg, fn(arg));
+        return cache.get(arg);
+      };
+    }
+
+- id: ts-assert-never
+  title: assertNever for exhaustive switch
+  language: typescript
+  code: |
+    export function assertNever(value: never): never {
+      throw new Error(`Unhandled case: ${JSON.stringify(value)}`);
+    }
+    switch (shape.kind) {
+      case "circle": return area(shape);
+      case "square": return shape.size ** 2;
+      default: return assertNever(shape);
+    }
+
+- id: js-intersection-observer
+  title: Lazy images with IntersectionObserver
+  language: javascript
+  code: |
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.src = entry.target.dataset.src;
+        io.unobserve(entry.target);
+      }
+    }, { rootMargin: "200px" });
+    document.querySelectorAll("img[data-src]").forEach((img) => io.observe(img));
+
+- id: ts-zod-env
+  title: Validate env at startup
+  language: typescript
+  tags: [zod, config]
+  code: |
+    const Env = z.object({
+      DATABASE_URL: z.string().url(),
+      PORT: z.coerce.number().default(3000),
+    });
+    export const env = Env.parse(process.env);
+
+- id: js-escape-html
+  title: escapeHtml
+  language: javascript
+  tags: [security]
+  code: |
+    const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+    export const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => map[c]);
+
+- id: py-retry-decorator
+  title: retry decorator
+  language: python
+  code: |
+    def retry(times: int = 3, base: float = 0.5):
+        def wrap(fn):
+            @functools.wraps(fn)
+            def inner(*args, **kwargs):
+                for attempt in range(times):
+                    try:
+                        return fn(*args, **kwargs)
+                    except Exception:
+                        if attempt == times - 1:
+                            raise
+                        time.sleep(base * 2**attempt)
+            return inner
+        return wrap
+
+- id: py-timer-context
+  title: timed()
+  language: python
+  code: |
+    @contextmanager
+    def timed(label: str):
+        start = time.perf_counter()
+        yield
+        print(f"{label}: {(time.perf_counter() - start) * 1000:.1f} ms")
+
+- id: py-lru-cache
+  title: Cache fib with lru_cache
+  language: python
+  code: |
+    from functools import lru_cache
+
+    @lru_cache(maxsize=None)
+    def fib(n: int) -> int:
+        return n if n < 2 else fib(n - 1) + fib(n - 2)
+
+- id: py-read-csv-dicts
+  title: Read CSV rows as dicts
+  language: python
+  code: |
+    with open("users.csv", newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            print(row["email"])
+
+- id: py-batched
+  title: batched
+  language: python
+  code: |
+    from itertools import batched  # 3.12+
+
+    for batch in batched(rows, 100):
+        insert_many(batch)
+
+- id: py-flatten
+  title: flatten
+  language: python
+  code: |
+    def flatten(items):
+        for item in items:
+            if isinstance(item, (list, tuple)):
+                yield from flatten(item)
+            else:
+                yield item
+
+- id: py-dataclass-json
+  title: Dataclass to JSON
+  language: python
+  code: |
+    @dataclass
+    class Point:
+        x: float
+        y: float
+
+    json.dumps(asdict(Point(1, 2)))
+
+- id: py-async-semaphore
+  title: gather with a semaphore
+  language: python
+  tags: [asyncio]
+  code: |
+    async def fetch_all(urls: list[str], limit: int = 5):
+        sem = asyncio.Semaphore(limit)
+        async def one(url: str):
+            async with sem:
+                return await client.get(url)
+        return await asyncio.gather(*(one(u) for u in urls))
+
+- id: py-rglob
+  title: Find files recursively
+  language: python
+  code: |
+    for path in Path("src").rglob("*.py"):
+        print(path, path.stat().st_size)
+
+- id: py-pydantic-settings
+  title: Settings from env
+  language: python
+  tags: [config]
+  code: |
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(env_file=".env")
+        database_url: str
+        debug: bool = False
+
+    settings = Settings()
+
+- id: py-fastapi-db-dependency
+  title: FastAPI DB session dependency
+  language: python
+  tags: [fastapi]
+  code: |
+    async def get_session() -> AsyncIterator[AsyncSession]:
+        async with sessionmaker() as session:
+            yield session
+
+    SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+- id: py-slugify
+  title: slugify
+  language: python
+  code: |
+    def slugify(text: str) -> str:
+        text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+        return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+- id: py-argparse
+  title: CLI with argparse
+  language: python
+  code: |
+    parser = argparse.ArgumentParser(description="Export data")
+    parser.add_argument("path")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+- id: py-logging-setup
+  title: Basic logging config
+  language: python
+  code: |
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    log = logging.getLogger(__name__)
+
+- id: py-sha256-file
+  title: Hash a big file
+  language: python
+  code: |
+    def sha256_file(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as f:
+            for block in iter(lambda: f.read(1 << 20), b""):
+                digest.update(block)
+        return digest.hexdigest()
+
+- id: py-utc-now
+  title: Timezone-aware now
+  language: python
+  tags: [dates]
+  code: |
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)  # never datetime.utcnow(): it's naive
+    stamp = now.isoformat()
+
+- id: sql-upsert
+  title: Upsert a row
+  language: sql
+  code: |
+    INSERT INTO users (id, email, name)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (id) DO UPDATE
+      SET email = EXCLUDED.email, name = EXCLUDED.name;
+
+- id: sql-delete-duplicates
+  title: Delete duplicate rows
+  language: sql
+  code: |
+    DELETE FROM contacts c
+    USING (
+      SELECT id, ROW_NUMBER() OVER (PARTITION BY email ORDER BY id) AS rn
+      FROM contacts
+    ) d
+    WHERE c.id = d.id AND d.rn > 1;
+
+- id: sql-running-total
+  title: Running total
+  language: sql
+  code: |
+    SELECT day, revenue,
+           SUM(revenue) OVER (ORDER BY day) AS total_so_far
+    FROM daily_revenue;
+
+- id: sql-top-n-per-group
+  title: Top N per group
+  language: sql
+  code: |
+    SELECT *
+    FROM (
+      SELECT p.*, ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY rating DESC) AS rn
+      FROM products p
+    ) ranked
+    WHERE rn <= 3;
+
+- id: sql-recursive-cte
+  title: Org chart with WITH RECURSIVE
+  language: sql
+  code: |
+    WITH RECURSIVE reports AS (
+      SELECT id, manager_id, name, 1 AS depth FROM employees WHERE id = $1
+      UNION ALL
+      SELECT e.id, e.manager_id, e.name, r.depth + 1
+      FROM employees e JOIN reports r ON e.manager_id = r.id
+    )
+    SELECT * FROM reports;
+
+- id: sql-keyset-pagination
+  title: Keyset pagination
+  language: sql
+  code: |
+    SELECT id, title, created_at
+    FROM posts
+    WHERE (created_at, id) < ($1, $2)
+    ORDER BY created_at DESC, id DESC
+    LIMIT 20;
+
+- id: sql-slow-queries
+  title: Slowest queries (pg_stat_statements)
+  language: sql
+  tags: [postgres]
+  code: |
+    SELECT calls, round(mean_exec_time::numeric, 1) AS mean_ms, query
+    FROM pg_stat_statements
+    ORDER BY mean_exec_time DESC
+    LIMIT 10;
+
+- id: sql-table-sizes
+  title: Table sizes
+  language: sql
+  tags: [postgres]
+  code: |
+    SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) AS size
+    FROM pg_catalog.pg_statio_user_tables
+    ORDER BY pg_total_relation_size(relid) DESC;
+
+- id: sql-streaks
+  title: Streaks (gaps and islands)
+  language: sql
+  code: |
+    SELECT MIN(day) AS start_day, MAX(day) AS end_day, COUNT(*) AS length
+    FROM (
+      SELECT day, day - (ROW_NUMBER() OVER (ORDER BY day))::int AS grp
+      FROM (SELECT DISTINCT created_at::date AS day FROM logins WHERE user_id = $1) d
+    ) t
+    GROUP BY grp
+    ORDER BY start_day DESC;
+
+- id: sql-generate-series
+  title: Calendar with generate_series
+  language: sql
+  code: |
+    SELECT d::date AS day, COALESCE(o.total, 0) AS total
+    FROM generate_series(now() - interval '29 days', now(), interval '1 day') AS d
+    LEFT JOIN daily_orders o ON o.day = d::date
+    ORDER BY day;
+
+- id: sql-json-agg
+  title: Nest rows as JSON
+  language: sql
+  code: |
+    SELECT a.id, a.name,
+           json_agg(json_build_object('id', b.id, 'title', b.title) ORDER BY b.year) AS books
+    FROM authors a
+    JOIN books b ON b.author_id = a.id
+    GROUP BY a.id;
+
+- id: sql-kill-idle
+  title: Kill idle connections
+  language: sql
+  tags: [postgres]
+  code: |
+    SELECT pg_terminate_backend(pid)
+    FROM pg_stat_activity
+    WHERE state = 'idle' AND state_change < now() - interval '10 minutes';
+
+- id: css-center-grid
+  title: Center anything
+  language: css
+  code: |
+    .center {
+      display: grid;
+      place-items: center;
+      min-height: 100dvh;
+    }
+
+- id: css-ellipsis
+  title: Single-line ellipsis
+  language: css
+  code: |
+    .truncate {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+- id: css-line-clamp
+  title: line-clamp
+  language: css
+  code: |
+    .clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+- id: css-sr-only
+  title: .sr-only
+  language: css
+  tags: [a11y]
+  code: |
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+- id: css-aspect-ratio
+  title: Responsive video embed
+  language: css
+  code: |
+    .video {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+    }
+
+- id: css-sticky-header
+  title: Sticky header
+  language: css
+  code: |
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+
+- id: css-dark-mode
+  title: Theme tokens
+  language: css
+  code: |
+    :root {
+      --bg: #ffffff;
+      --fg: #111111;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0f;
+        --fg: #e8e8ea;
+      }
+    }
+
+- id: css-reduced-motion
+  title: prefers-reduced-motion reset
+  language: css
+  tags: [a11y]
+  code: |
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+- id: css-fluid-type
+  title: Fluid font size
+  language: css
+  code: |
+    h1 {
+      font-size: clamp(1.75rem, 1rem + 3vw, 3rem);
+    }
+
+- id: css-scroll-margin
+  title: scroll-margin-top
+  description: Anchor links land below the fixed nav
+  language: css
+  code: |
+    :target,
+    h2[id] {
+      scroll-margin-top: 5rem;
+    }

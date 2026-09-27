@@ -1,0 +1,112 @@
+# Queries with the snippets that should come back. `kind` says how the query is phrased:
+#   keyword — uses a name or term that appears in the snippet (what full-text is good at)
+#   intent  — describes the goal in other words, sharing no meaningful word with the target
+#   mixed   — some overlap, mostly paraphrase
+# `relevant` lists every snippet a person would accept as an answer (Recall@5 counts them all).
+
+queries:
+  # keyword
+  - q: debounce
+    kind: keyword
+    relevant: [js-debounce, ts-use-debounced-value]
+  - q: ON CONFLICT
+    kind: keyword
+    relevant: [sql-upsert]
+  - q: useLocalStorage
+    kind: keyword
+    relevant: [ts-local-storage-hook]
+  - q: line-clamp
+    kind: keyword
+    relevant: [css-line-clamp]
+  - q: pg_stat_statements
+    kind: keyword
+    relevant: [sql-slow-queries]
+  - q: AbortController timeout
+    kind: keyword
+    relevant: [js-abort-timeout]
+  - q: lru_cache
+    kind: keyword
+    relevant: [py-lru-cache]
+  - q: IntersectionObserver
+    kind: keyword
+    relevant: [js-intersection-observer]
+  - q: WITH RECURSIVE
+    kind: keyword
+    relevant: [sql-recursive-cte]
+  - q: asyncio semaphore
+    kind: keyword
+    relevant: [py-async-semaphore]
+
+  # intent
+  - q: stop a function from firing too often
+    kind: intent
+    relevant: [js-debounce, js-throttle, ts-use-debounced-value]
+  - q: remove repeated values from a list
+    kind: intent
+    relevant: [js-unique-array]
+  - q: wait a few seconds before continuing
+    kind: intent
+    relevant: [ts-sleep]
+  - q: cumulative sum of sales by day
+    kind: intent
+    relevant: [sql-running-total]
+  - q: cut off long text with three dots
+    kind: intent
+    relevant: [css-ellipsis, css-line-clamp]
+  - q: hide an element visually but keep it for screen readers
+    kind: intent
+    relevant: [css-sr-only]
+  - q: how long did this block of code take
+    kind: intent
+    relevant: [py-timer-context]
+  - q: best three items in each category
+    kind: intent
+    relevant: [sql-top-n-per-group]
+  - q: user switched the OS to night theme
+    kind: intent
+    relevant: [css-dark-mode]
+  - q: close a dropdown when clicking elsewhere on the page
+    kind: intent
+    relevant: [ts-use-click-outside]
+  - q: show "5 minutes ago"
+    kind: intent
+    relevant: [js-relative-time]
+  - q: which tables use the most disk space
+    kind: intent
+    relevant: [sql-table-sizes]
+  - q: turn a title into a URL-friendly string
+    kind: intent
+    relevant: [py-slugify]
+  - q: load pictures only when they scroll into view
+    kind: intent
+    relevant: [js-intersection-observer]
+  - q: count consecutive active days
+    kind: intent
+    relevant: [sql-streaks]
+  - q: make animations respect accessibility settings
+    kind: intent
+    relevant: [css-reduced-motion]
+
+  # mixed
+  - q: try the request again when it fails
+    kind: mixed
+    relevant: [js-fetch-retry, py-retry-decorator]
+  - q: limit how many downloads run at once
+    kind: mixed
+    relevant: [py-async-semaphore]
+  - q: split an array into groups of n
+    kind: mixed
+    relevant: [js-chunk-array, py-batched]
+  - q: fill in missing days in a report
+    kind: mixed
+    relevant: [sql-generate-series]
+
+# Questions nothing in the corpus answers. A search that returns anything for these is
+# showing noise; the semantic cut-off exists to keep this near zero.
+no_answer:
+  - quarterly tax return
+  - kubernetes helm chart values
+  - train a neural network on images
+  - send an SMS with twilio
+  - recipe for banana bread
+  - configure a VPN on a router

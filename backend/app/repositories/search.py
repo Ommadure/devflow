@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Snippet
 from app.repositories._rrf import RRF_K, fuse
+from app.repositories._vector import scan_past_other_users
 
 Mode = Literal["keyword", "semantic", "hybrid"]
 MatchType = Literal["keyword", "semantic", "both"]
@@ -121,6 +122,8 @@ async def hybrid_search(
     fused = fuse(keyword, semantic)
     if fused is None:
         return []
+    if semantic is not None:
+        await scan_past_other_users(session)
     rows = await session.execute(
         select(Snippet, fused.c.score, fused.c.by_keyword, fused.c.by_semantic)
         .join(fused, Snippet.id == fused.c.id)

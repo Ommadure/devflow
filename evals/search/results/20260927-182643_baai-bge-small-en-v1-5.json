@@ -1,0 +1,1447 @@
+{
+  "timestamp": "2026-09-27T18:26:43+00:00",
+  "model": "BAAI/bge-small-en-v1.5",
+  "max_distance": 0.4,
+  "snippets": 60,
+  "queries": 30,
+  "no_answer": 6,
+  "repeats": 5,
+  "modes": {
+    "keyword": {
+      "recall_at_5": 0.333,
+      "mrr_at_10": 0.333,
+      "latency_ms": {
+        "p50": 9.8,
+        "p95": 29.7
+      },
+      "by_kind": {
+        "keyword": {
+          "recall_at_5": 1.0,
+          "mrr_at_10": 1.0
+        },
+        "intent": {
+          "recall_at_5": 0.0,
+          "mrr_at_10": 0.0
+        },
+        "mixed": {
+          "recall_at_5": 0.0,
+          "mrr_at_10": 0.0
+        }
+      },
+      "no_answer_with_results": 0,
+      "results": [
+        {
+          "q": "debounce",
+          "kind": "keyword",
+          "relevant": [
+            "js-debounce",
+            "ts-use-debounced-value"
+          ],
+          "ranked": [
+            "js-debounce",
+            "ts-use-debounced-value"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "ON CONFLICT",
+          "kind": "keyword",
+          "relevant": [
+            "sql-upsert"
+          ],
+          "ranked": [
+            "sql-upsert"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "useLocalStorage",
+          "kind": "keyword",
+          "relevant": [
+            "ts-local-storage-hook"
+          ],
+          "ranked": [
+            "ts-local-storage-hook"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "line-clamp",
+          "kind": "keyword",
+          "relevant": [
+            "css-line-clamp"
+          ],
+          "ranked": [
+            "css-line-clamp"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "pg_stat_statements",
+          "kind": "keyword",
+          "relevant": [
+            "sql-slow-queries"
+          ],
+          "ranked": [
+            "sql-slow-queries"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "AbortController timeout",
+          "kind": "keyword",
+          "relevant": [
+            "js-abort-timeout"
+          ],
+          "ranked": [
+            "js-abort-timeout"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "lru_cache",
+          "kind": "keyword",
+          "relevant": [
+            "py-lru-cache"
+          ],
+          "ranked": [
+            "py-lru-cache"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "IntersectionObserver",
+          "kind": "keyword",
+          "relevant": [
+            "js-intersection-observer"
+          ],
+          "ranked": [
+            "js-intersection-observer"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "WITH RECURSIVE",
+          "kind": "keyword",
+          "relevant": [
+            "sql-recursive-cte"
+          ],
+          "ranked": [
+            "sql-recursive-cte",
+            "py-rglob"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "asyncio semaphore",
+          "kind": "keyword",
+          "relevant": [
+            "py-async-semaphore"
+          ],
+          "ranked": [
+            "py-async-semaphore"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "stop a function from firing too often",
+          "kind": "intent",
+          "relevant": [
+            "js-debounce",
+            "js-throttle",
+            "ts-use-debounced-value"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "remove repeated values from a list",
+          "kind": "intent",
+          "relevant": [
+            "js-unique-array"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "wait a few seconds before continuing",
+          "kind": "intent",
+          "relevant": [
+            "ts-sleep"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "cumulative sum of sales by day",
+          "kind": "intent",
+          "relevant": [
+            "sql-running-total"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "cut off long text with three dots",
+          "kind": "intent",
+          "relevant": [
+            "css-ellipsis",
+            "css-line-clamp"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "hide an element visually but keep it for screen readers",
+          "kind": "intent",
+          "relevant": [
+            "css-sr-only"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "how long did this block of code take",
+          "kind": "intent",
+          "relevant": [
+            "py-timer-context"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "best three items in each category",
+          "kind": "intent",
+          "relevant": [
+            "sql-top-n-per-group"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "user switched the OS to night theme",
+          "kind": "intent",
+          "relevant": [
+            "css-dark-mode"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "close a dropdown when clicking elsewhere on the page",
+          "kind": "intent",
+          "relevant": [
+            "ts-use-click-outside"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "show \"5 minutes ago\"",
+          "kind": "intent",
+          "relevant": [
+            "js-relative-time"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "which tables use the most disk space",
+          "kind": "intent",
+          "relevant": [
+            "sql-table-sizes"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "turn a title into a URL-friendly string",
+          "kind": "intent",
+          "relevant": [
+            "py-slugify"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "load pictures only when they scroll into view",
+          "kind": "intent",
+          "relevant": [
+            "js-intersection-observer"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "count consecutive active days",
+          "kind": "intent",
+          "relevant": [
+            "sql-streaks"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "make animations respect accessibility settings",
+          "kind": "intent",
+          "relevant": [
+            "css-reduced-motion"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "try the request again when it fails",
+          "kind": "mixed",
+          "relevant": [
+            "js-fetch-retry",
+            "py-retry-decorator"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "limit how many downloads run at once",
+          "kind": "mixed",
+          "relevant": [
+            "py-async-semaphore"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "split an array into groups of n",
+          "kind": "mixed",
+          "relevant": [
+            "js-chunk-array",
+            "py-batched"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "fill in missing days in a report",
+          "kind": "mixed",
+          "relevant": [
+            "sql-generate-series"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        }
+      ]
+    },
+    "semantic": {
+      "recall_at_5": 0.817,
+      "mrr_at_10": 0.758,
+      "latency_ms": {
+        "p50": 28.5,
+        "p95": 43.5
+      },
+      "by_kind": {
+        "keyword": {
+          "recall_at_5": 0.9,
+          "mrr_at_10": 0.9
+        },
+        "intent": {
+          "recall_at_5": 0.812,
+          "mrr_at_10": 0.743
+        },
+        "mixed": {
+          "recall_at_5": 0.625,
+          "mrr_at_10": 0.458
+        }
+      },
+      "no_answer_with_results": 3,
+      "results": [
+        {
+          "q": "debounce",
+          "kind": "keyword",
+          "relevant": [
+            "js-debounce",
+            "ts-use-debounced-value"
+          ],
+          "ranked": [
+            "js-debounce",
+            "ts-use-debounced-value"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "ON CONFLICT",
+          "kind": "keyword",
+          "relevant": [
+            "sql-upsert"
+          ],
+          "ranked": [],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "useLocalStorage",
+          "kind": "keyword",
+          "relevant": [
+            "ts-local-storage-hook"
+          ],
+          "ranked": [
+            "ts-local-storage-hook"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "line-clamp",
+          "kind": "keyword",
+          "relevant": [
+            "css-line-clamp"
+          ],
+          "ranked": [
+            "css-line-clamp",
+            "css-fluid-type",
+            "css-ellipsis"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "pg_stat_statements",
+          "kind": "keyword",
+          "relevant": [
+            "sql-slow-queries"
+          ],
+          "ranked": [
+            "sql-slow-queries",
+            "sql-table-sizes",
+            "sql-kill-idle",
+            "sql-top-n-per-group",
+            "sql-streaks",
+            "sql-recursive-cte",
+            "py-rglob",
+            "sql-running-total",
+            "sql-generate-series",
+            "sql-keyset-pagination"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "AbortController timeout",
+          "kind": "keyword",
+          "relevant": [
+            "js-abort-timeout"
+          ],
+          "ranked": [
+            "js-abort-timeout",
+            "sql-kill-idle",
+            "js-debounce",
+            "js-fetch-retry",
+            "js-throttle"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "lru_cache",
+          "kind": "keyword",
+          "relevant": [
+            "py-lru-cache"
+          ],
+          "ranked": [
+            "py-lru-cache",
+            "py-rglob",
+            "py-async-semaphore"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "IntersectionObserver",
+          "kind": "keyword",
+          "relevant": [
+            "js-intersection-observer"
+          ],
+          "ranked": [
+            "js-intersection-observer"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "WITH RECURSIVE",
+          "kind": "keyword",
+          "relevant": [
+            "sql-recursive-cte"
+          ],
+          "ranked": [
+            "sql-recursive-cte",
+            "py-rglob",
+            "py-flatten",
+            "js-chunk-array",
+            "js-deep-clone",
+            "sql-generate-series",
+            "js-group-by",
+            "js-unique-array",
+            "py-async-semaphore",
+            "sql-running-total"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "asyncio semaphore",
+          "kind": "keyword",
+          "relevant": [
+            "py-async-semaphore"
+          ],
+          "ranked": [
+            "py-async-semaphore"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "stop a function from firing too often",
+          "kind": "intent",
+          "relevant": [
+            "js-debounce",
+            "js-throttle",
+            "ts-use-debounced-value"
+          ],
+          "ranked": [
+            "js-throttle",
+            "js-debounce",
+            "sql-kill-idle",
+            "py-retry-decorator",
+            "ts-use-debounced-value",
+            "js-abort-timeout",
+            "ts-use-click-outside",
+            "js-fetch-retry",
+            "js-memoize",
+            "py-timer-context"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "remove repeated values from a list",
+          "kind": "intent",
+          "relevant": [
+            "js-unique-array"
+          ],
+          "ranked": [
+            "js-unique-array",
+            "py-flatten",
+            "sql-delete-duplicates",
+            "js-group-by"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "wait a few seconds before continuing",
+          "kind": "intent",
+          "relevant": [
+            "ts-sleep"
+          ],
+          "ranked": [
+            "js-debounce",
+            "css-reduced-motion",
+            "js-abort-timeout",
+            "js-throttle",
+            "py-async-semaphore",
+            "sql-kill-idle",
+            "ts-sleep",
+            "js-fetch-retry",
+            "py-retry-decorator"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.14285714285714285
+        },
+        {
+          "q": "cumulative sum of sales by day",
+          "kind": "intent",
+          "relevant": [
+            "sql-running-total"
+          ],
+          "ranked": [
+            "sql-running-total",
+            "sql-streaks",
+            "sql-generate-series",
+            "sql-top-n-per-group",
+            "sql-recursive-cte"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "cut off long text with three dots",
+          "kind": "intent",
+          "relevant": [
+            "css-ellipsis",
+            "css-line-clamp"
+          ],
+          "ranked": [
+            "css-ellipsis",
+            "css-line-clamp",
+            "css-fluid-type",
+            "py-slugify"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "hide an element visually but keep it for screen readers",
+          "kind": "intent",
+          "relevant": [
+            "css-sr-only"
+          ],
+          "ranked": [
+            "css-ellipsis",
+            "css-center-grid",
+            "css-sticky-header",
+            "css-sr-only",
+            "css-reduced-motion",
+            "css-line-clamp",
+            "ts-use-click-outside"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 0.25
+        },
+        {
+          "q": "how long did this block of code take",
+          "kind": "intent",
+          "relevant": [
+            "py-timer-context"
+          ],
+          "ranked": [
+            "ts-use-debounced-value",
+            "js-relative-time",
+            "py-retry-decorator"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "best three items in each category",
+          "kind": "intent",
+          "relevant": [
+            "sql-top-n-per-group"
+          ],
+          "ranked": [
+            "sql-top-n-per-group"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "user switched the OS to night theme",
+          "kind": "intent",
+          "relevant": [
+            "css-dark-mode"
+          ],
+          "ranked": [
+            "css-dark-mode"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "close a dropdown when clicking elsewhere on the page",
+          "kind": "intent",
+          "relevant": [
+            "ts-use-click-outside"
+          ],
+          "ranked": [
+            "ts-use-click-outside",
+            "css-scroll-margin",
+            "css-center-grid"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "show \"5 minutes ago\"",
+          "kind": "intent",
+          "relevant": [
+            "js-relative-time"
+          ],
+          "ranked": [
+            "js-relative-time"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "which tables use the most disk space",
+          "kind": "intent",
+          "relevant": [
+            "sql-table-sizes"
+          ],
+          "ranked": [
+            "sql-table-sizes",
+            "py-lru-cache",
+            "sql-slow-queries",
+            "sql-keyset-pagination",
+            "sql-top-n-per-group"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "turn a title into a URL-friendly string",
+          "kind": "intent",
+          "relevant": [
+            "py-slugify"
+          ],
+          "ranked": [
+            "js-query-string",
+            "py-slugify",
+            "js-escape-html",
+            "sql-keyset-pagination",
+            "css-dark-mode"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 0.5
+        },
+        {
+          "q": "load pictures only when they scroll into view",
+          "kind": "intent",
+          "relevant": [
+            "js-intersection-observer"
+          ],
+          "ranked": [
+            "css-reduced-motion"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "count consecutive active days",
+          "kind": "intent",
+          "relevant": [
+            "sql-streaks"
+          ],
+          "ranked": [
+            "sql-streaks",
+            "sql-generate-series",
+            "sql-running-total",
+            "sql-kill-idle",
+            "js-relative-time"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "make animations respect accessibility settings",
+          "kind": "intent",
+          "relevant": [
+            "css-reduced-motion"
+          ],
+          "ranked": [
+            "css-reduced-motion",
+            "ts-use-debounced-value",
+            "css-center-grid",
+            "ts-use-click-outside",
+            "css-aspect-ratio",
+            "css-sticky-header",
+            "css-sr-only"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "try the request again when it fails",
+          "kind": "mixed",
+          "relevant": [
+            "js-fetch-retry",
+            "py-retry-decorator"
+          ],
+          "ranked": [
+            "js-fetch-retry",
+            "py-retry-decorator",
+            "js-abort-timeout"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "limit how many downloads run at once",
+          "kind": "mixed",
+          "relevant": [
+            "py-async-semaphore"
+          ],
+          "ranked": [
+            "js-throttle"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "split an array into groups of n",
+          "kind": "mixed",
+          "relevant": [
+            "js-chunk-array",
+            "py-batched"
+          ],
+          "ranked": [
+            "js-group-by",
+            "js-unique-array",
+            "js-chunk-array",
+            "sql-top-n-per-group",
+            "sql-json-agg"
+          ],
+          "recall_at_5": 0.5,
+          "rr_at_10": 0.3333333333333333
+        },
+        {
+          "q": "fill in missing days in a report",
+          "kind": "mixed",
+          "relevant": [
+            "sql-generate-series"
+          ],
+          "ranked": [
+            "sql-streaks",
+            "sql-generate-series",
+            "sql-running-total",
+            "sql-recursive-cte",
+            "js-relative-time"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 0.5
+        }
+      ]
+    },
+    "hybrid": {
+      "recall_at_5": 0.85,
+      "mrr_at_10": 0.791,
+      "latency_ms": {
+        "p50": 31.6,
+        "p95": 52.4
+      },
+      "by_kind": {
+        "keyword": {
+          "recall_at_5": 1.0,
+          "mrr_at_10": 1.0
+        },
+        "intent": {
+          "recall_at_5": 0.812,
+          "mrr_at_10": 0.743
+        },
+        "mixed": {
+          "recall_at_5": 0.625,
+          "mrr_at_10": 0.458
+        }
+      },
+      "no_answer_with_results": 3,
+      "results": [
+        {
+          "q": "debounce",
+          "kind": "keyword",
+          "relevant": [
+            "js-debounce",
+            "ts-use-debounced-value"
+          ],
+          "ranked": [
+            "js-debounce",
+            "ts-use-debounced-value"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "ON CONFLICT",
+          "kind": "keyword",
+          "relevant": [
+            "sql-upsert"
+          ],
+          "ranked": [
+            "sql-upsert"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "useLocalStorage",
+          "kind": "keyword",
+          "relevant": [
+            "ts-local-storage-hook"
+          ],
+          "ranked": [
+            "ts-local-storage-hook"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "line-clamp",
+          "kind": "keyword",
+          "relevant": [
+            "css-line-clamp"
+          ],
+          "ranked": [
+            "css-line-clamp",
+            "css-fluid-type",
+            "css-ellipsis"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "pg_stat_statements",
+          "kind": "keyword",
+          "relevant": [
+            "sql-slow-queries"
+          ],
+          "ranked": [
+            "sql-slow-queries",
+            "sql-table-sizes",
+            "sql-kill-idle",
+            "sql-top-n-per-group",
+            "sql-streaks",
+            "sql-recursive-cte",
+            "py-rglob",
+            "sql-running-total",
+            "sql-generate-series",
+            "sql-keyset-pagination"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "AbortController timeout",
+          "kind": "keyword",
+          "relevant": [
+            "js-abort-timeout"
+          ],
+          "ranked": [
+            "js-abort-timeout",
+            "sql-kill-idle",
+            "js-debounce",
+            "js-fetch-retry",
+            "js-throttle"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "lru_cache",
+          "kind": "keyword",
+          "relevant": [
+            "py-lru-cache"
+          ],
+          "ranked": [
+            "py-lru-cache",
+            "py-rglob",
+            "py-async-semaphore"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "IntersectionObserver",
+          "kind": "keyword",
+          "relevant": [
+            "js-intersection-observer"
+          ],
+          "ranked": [
+            "js-intersection-observer"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "WITH RECURSIVE",
+          "kind": "keyword",
+          "relevant": [
+            "sql-recursive-cte"
+          ],
+          "ranked": [
+            "sql-recursive-cte",
+            "py-rglob",
+            "py-flatten",
+            "js-chunk-array",
+            "js-deep-clone",
+            "sql-generate-series",
+            "js-group-by",
+            "js-unique-array",
+            "py-async-semaphore",
+            "sql-running-total"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "asyncio semaphore",
+          "kind": "keyword",
+          "relevant": [
+            "py-async-semaphore"
+          ],
+          "ranked": [
+            "py-async-semaphore"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "stop a function from firing too often",
+          "kind": "intent",
+          "relevant": [
+            "js-debounce",
+            "js-throttle",
+            "ts-use-debounced-value"
+          ],
+          "ranked": [
+            "js-throttle",
+            "js-debounce",
+            "sql-kill-idle",
+            "py-retry-decorator",
+            "ts-use-debounced-value",
+            "js-abort-timeout",
+            "ts-use-click-outside",
+            "js-fetch-retry",
+            "js-memoize",
+            "py-timer-context"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "remove repeated values from a list",
+          "kind": "intent",
+          "relevant": [
+            "js-unique-array"
+          ],
+          "ranked": [
+            "js-unique-array",
+            "py-flatten",
+            "sql-delete-duplicates",
+            "js-group-by"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "wait a few seconds before continuing",
+          "kind": "intent",
+          "relevant": [
+            "ts-sleep"
+          ],
+          "ranked": [
+            "js-debounce",
+            "css-reduced-motion",
+            "js-abort-timeout",
+            "js-throttle",
+            "py-async-semaphore",
+            "sql-kill-idle",
+            "ts-sleep",
+            "js-fetch-retry",
+            "py-retry-decorator"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.14285714285714285
+        },
+        {
+          "q": "cumulative sum of sales by day",
+          "kind": "intent",
+          "relevant": [
+            "sql-running-total"
+          ],
+          "ranked": [
+            "sql-running-total",
+            "sql-streaks",
+            "sql-generate-series",
+            "sql-top-n-per-group",
+            "sql-recursive-cte"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "cut off long text with three dots",
+          "kind": "intent",
+          "relevant": [
+            "css-ellipsis",
+            "css-line-clamp"
+          ],
+          "ranked": [
+            "css-ellipsis",
+            "css-line-clamp",
+            "css-fluid-type",
+            "py-slugify"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "hide an element visually but keep it for screen readers",
+          "kind": "intent",
+          "relevant": [
+            "css-sr-only"
+          ],
+          "ranked": [
+            "css-ellipsis",
+            "css-center-grid",
+            "css-sticky-header",
+            "css-sr-only",
+            "css-reduced-motion",
+            "css-line-clamp",
+            "ts-use-click-outside"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 0.25
+        },
+        {
+          "q": "how long did this block of code take",
+          "kind": "intent",
+          "relevant": [
+            "py-timer-context"
+          ],
+          "ranked": [
+            "ts-use-debounced-value",
+            "js-relative-time",
+            "py-retry-decorator"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "best three items in each category",
+          "kind": "intent",
+          "relevant": [
+            "sql-top-n-per-group"
+          ],
+          "ranked": [
+            "sql-top-n-per-group"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "user switched the OS to night theme",
+          "kind": "intent",
+          "relevant": [
+            "css-dark-mode"
+          ],
+          "ranked": [
+            "css-dark-mode"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "close a dropdown when clicking elsewhere on the page",
+          "kind": "intent",
+          "relevant": [
+            "ts-use-click-outside"
+          ],
+          "ranked": [
+            "ts-use-click-outside",
+            "css-scroll-margin",
+            "css-center-grid"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "show \"5 minutes ago\"",
+          "kind": "intent",
+          "relevant": [
+            "js-relative-time"
+          ],
+          "ranked": [
+            "js-relative-time"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "which tables use the most disk space",
+          "kind": "intent",
+          "relevant": [
+            "sql-table-sizes"
+          ],
+          "ranked": [
+            "sql-table-sizes",
+            "py-lru-cache",
+            "sql-slow-queries",
+            "sql-keyset-pagination",
+            "sql-top-n-per-group"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "turn a title into a URL-friendly string",
+          "kind": "intent",
+          "relevant": [
+            "py-slugify"
+          ],
+          "ranked": [
+            "js-query-string",
+            "py-slugify",
+            "js-escape-html",
+            "sql-keyset-pagination",
+            "css-dark-mode"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 0.5
+        },
+        {
+          "q": "load pictures only when they scroll into view",
+          "kind": "intent",
+          "relevant": [
+            "js-intersection-observer"
+          ],
+          "ranked": [
+            "css-reduced-motion"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "count consecutive active days",
+          "kind": "intent",
+          "relevant": [
+            "sql-streaks"
+          ],
+          "ranked": [
+            "sql-streaks",
+            "sql-generate-series",
+            "sql-running-total",
+            "sql-kill-idle",
+            "js-relative-time"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "make animations respect accessibility settings",
+          "kind": "intent",
+          "relevant": [
+            "css-reduced-motion"
+          ],
+          "ranked": [
+            "css-reduced-motion",
+            "ts-use-debounced-value",
+            "css-center-grid",
+            "ts-use-click-outside",
+            "css-aspect-ratio",
+            "css-sticky-header",
+            "css-sr-only"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "try the request again when it fails",
+          "kind": "mixed",
+          "relevant": [
+            "js-fetch-retry",
+            "py-retry-decorator"
+          ],
+          "ranked": [
+            "js-fetch-retry",
+            "py-retry-decorator",
+            "js-abort-timeout"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 1.0
+        },
+        {
+          "q": "limit how many downloads run at once",
+          "kind": "mixed",
+          "relevant": [
+            "py-async-semaphore"
+          ],
+          "ranked": [
+            "js-throttle"
+          ],
+          "recall_at_5": 0.0,
+          "rr_at_10": 0.0
+        },
+        {
+          "q": "split an array into groups of n",
+          "kind": "mixed",
+          "relevant": [
+            "js-chunk-array",
+            "py-batched"
+          ],
+          "ranked": [
+            "js-group-by",
+            "js-unique-array",
+            "js-chunk-array",
+            "sql-top-n-per-group",
+            "sql-json-agg"
+          ],
+          "recall_at_5": 0.5,
+          "rr_at_10": 0.3333333333333333
+        },
+        {
+          "q": "fill in missing days in a report",
+          "kind": "mixed",
+          "relevant": [
+            "sql-generate-series"
+          ],
+          "ranked": [
+            "sql-streaks",
+            "sql-generate-series",
+            "sql-running-total",
+            "sql-recursive-cte",
+            "js-relative-time"
+          ],
+          "recall_at_5": 1.0,
+          "rr_at_10": 0.5
+        }
+      ]
+    }
+  },
+  "cutoff_sweep": [
+    {
+      "max_distance": 0.3,
+      "semantic": {
+        "recall_at_5": 0.383,
+        "mrr_at_10": 0.383,
+        "no_answer_with_results": 0
+      },
+      "hybrid": {
+        "recall_at_5": 0.433,
+        "mrr_at_10": 0.417,
+        "no_answer_with_results": 0
+      }
+    },
+    {
+      "max_distance": 0.35,
+      "semantic": {
+        "recall_at_5": 0.589,
+        "mrr_at_10": 0.6,
+        "no_answer_with_results": 0
+      },
+      "hybrid": {
+        "recall_at_5": 0.622,
+        "mrr_at_10": 0.633,
+        "no_answer_with_results": 0
+      }
+    },
+    {
+      "max_distance": 0.4,
+      "semantic": {
+        "recall_at_5": 0.817,
+        "mrr_at_10": 0.758,
+        "no_answer_with_results": 3
+      },
+      "hybrid": {
+        "recall_at_5": 0.85,
+        "mrr_at_10": 0.791,
+        "no_answer_with_results": 3
+      }
+    },
+    {
+      "max_distance": 0.45,
+      "semantic": {
+        "recall_at_5": 0.883,
+        "mrr_at_10": 0.785,
+        "no_answer_with_results": 5
+      },
+      "hybrid": {
+        "recall_at_5": 0.917,
+        "mrr_at_10": 0.818,
+        "no_answer_with_results": 5
+      }
+    },
+    {
+      "max_distance": 0.5,
+      "semantic": {
+        "recall_at_5": 0.883,
+        "mrr_at_10": 0.785,
+        "no_answer_with_results": 6
+      },
+      "hybrid": {
+        "recall_at_5": 0.917,
+        "mrr_at_10": 0.818,
+        "no_answer_with_results": 6
+      }
+    }
+  ],
+  "distances": {
+    "best_relevant": {
+      "min": 0.185,
+      "median": 0.325,
+      "max": 0.505,
+      "values": [
+        0.264,
+        0.505,
+        0.209,
+        0.188,
+        0.239,
+        0.249,
+        0.185,
+        0.207,
+        0.29,
+        0.229,
+        0.307,
+        0.33,
+        0.382,
+        0.231,
+        0.32,
+        0.379,
+        0.418,
+        0.387,
+        0.396,
+        0.357,
+        0.371,
+        0.331,
+        0.338,
+        0.422,
+        0.256,
+        0.304,
+        0.341,
+        0.403,
+        0.356,
+        0.3
+      ]
+    },
+    "nearest_for_no_answer": {
+      "min": 0.369,
+      "median": 0.411,
+      "max": 0.466,
+      "values": [
+        0.4,
+        0.369,
+        0.443,
+        0.422,
+        0.466,
+        0.393
+      ]
+    }
+  }
+}

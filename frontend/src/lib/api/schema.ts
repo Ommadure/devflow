@@ -143,6 +143,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/snippets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Snippets */
+        get: operations["list_snippets_api_v1_snippets_get"];
+        put?: never;
+        /** Create Snippet */
+        post: operations["create_snippet_api_v1_snippets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/snippets/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tags */
+        get: operations["list_tags_api_v1_snippets_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/snippets/{snippet_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Snippet */
+        get: operations["get_snippet_api_v1_snippets__snippet_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Snippet */
+        delete: operations["delete_snippet_api_v1_snippets__snippet_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Snippet */
+        patch: operations["update_snippet_api_v1_snippets__snippet_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notes */
+        get: operations["list_notes_api_v1_notes_get"];
+        put?: never;
+        /** Create Note */
+        post: operations["create_note_api_v1_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Note */
+        get: operations["get_note_api_v1_notes__note_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Note */
+        delete: operations["delete_note_api_v1_notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Note */
+        patch: operations["update_note_api_v1_notes__note_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/pomodoro/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sessions */
+        get: operations["list_sessions_api_v1_pomodoro_sessions_get"];
+        put?: never;
+        /**
+         * Record Session
+         * @description Record that a focus session just finished; the server stamps the time.
+         */
+        post: operations["record_session_api_v1_pomodoro_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summary
+         * @description Counts for the dashboard tiles; "today" means since midnight in `tz`.
+         */
+        get: operations["summary_api_v1_dashboard_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -153,6 +285,20 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** DashboardSummary */
+        DashboardSummary: {
+            /** Snippets */
+            snippets: number;
+            /** Notes */
+            notes: number;
+            /** Focus Sessions */
+            focus_sessions: number;
+            /**
+             * Focus Sessions Today
+             * @description Since midnight in the requested timezone.
+             */
+            focus_sessions_today: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -177,6 +323,93 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** NoteCreate */
+        NoteCreate: {
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+        };
+        /** NoteOut */
+        NoteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** NoteUpdate */
+        NoteUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Content */
+            content?: string | null;
+        };
+        /** Page[NoteOut] */
+        Page_NoteOut_: {
+            /** Items */
+            items: components["schemas"]["NoteOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** Page[PomodoroSessionOut] */
+        Page_PomodoroSessionOut_: {
+            /** Items */
+            items: components["schemas"]["PomodoroSessionOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** Page[SnippetOut] */
+        Page_SnippetOut_: {
+            /** Items */
+            items: components["schemas"]["SnippetOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * PomodoroSessionCreate
+         * @description "A focus session just finished." The server stamps the time; the client only says
+         *     how long it was (bounded, so a buggy or hostile client can't log a 10-year session).
+         */
+        PomodoroSessionCreate: {
+            /** Duration Seconds */
+            duration_seconds: number;
+        };
+        /** PomodoroSessionOut */
+        PomodoroSessionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Completed At
+             * Format: date-time
+             */
+            completed_at: string;
+            /** Duration Seconds */
+            duration_seconds: number;
         };
         /** ReadyOut */
         ReadyOut: {
@@ -220,6 +453,83 @@ export interface components {
              */
             expires_in: number;
             user: components["schemas"]["UserOut"];
+        };
+        /** SnippetCreate */
+        SnippetCreate: {
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /** Code */
+            code: string;
+            /** Language */
+            language?: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Favorite
+             * @default false
+             */
+            favorite: boolean;
+        };
+        /** SnippetOut */
+        SnippetOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Code */
+            code: string;
+            /** Language */
+            language: string | null;
+            /** Tags */
+            tags: string[];
+            /** Favorite */
+            favorite: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * SnippetUpdate
+         * @description PATCH: only the fields sent are changed. Sending null clears description/language;
+         *     the other fields can't be null.
+         */
+        SnippetUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Code */
+            code?: string | null;
+            /** Language */
+            language?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Favorite */
+            favorite?: boolean | null;
+        };
+        /** TagCount */
+        TagCount: {
+            /** Tag */
+            tag: string;
+            /** Count */
+            count: number;
         };
         /** UserOut */
         UserOut: {
@@ -518,6 +828,493 @@ export interface operations {
             };
             /** @description Rate limited */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_snippets_api_v1_snippets_get: {
+        parameters: {
+            query?: {
+                /** @description Substring of title, description or code */
+                q?: string | null;
+                language?: string | null;
+                tag?: string | null;
+                favorite?: boolean | null;
+                limit?: number;
+                /** @description next_cursor from the previous page */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SnippetOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_snippet_api_v1_snippets_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnippetCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnippetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tags_api_v1_snippets_tags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TagCount"][];
+                };
+            };
+        };
+    };
+    get_snippet_api_v1_snippets__snippet_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snippet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnippetOut"];
+                };
+            };
+            /** @description Snippet not found (or not yours) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_snippet_api_v1_snippets__snippet_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snippet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Snippet not found (or not yours) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_snippet_api_v1_snippets__snippet_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snippet_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnippetUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnippetOut"];
+                };
+            };
+            /** @description Snippet not found (or not yours) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notes_api_v1_notes_get: {
+        parameters: {
+            query?: {
+                /** @description Substring of title or content */
+                q?: string | null;
+                limit?: number;
+                /** @description next_cursor from the previous page */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_NoteOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_note_api_v1_notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_note_api_v1_notes__note_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Note not found (or not yours) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_note_api_v1_notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Note not found (or not yours) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_note_api_v1_notes__note_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Note not found (or not yours) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sessions_api_v1_pomodoro_sessions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description next_cursor from the previous page */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PomodoroSessionOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_session_api_v1_pomodoro_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PomodoroSessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PomodoroSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    summary_api_v1_dashboard_summary_get: {
+        parameters: {
+            query?: {
+                /** @description IANA name, e.g. Asia/Kolkata */
+                tz?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardSummary"];
+                };
+            };
+            /** @description Unknown timezone */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

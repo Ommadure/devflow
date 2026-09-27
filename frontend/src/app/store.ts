@@ -1,9 +1,11 @@
 import { combineSlices, configureStore } from "@reduxjs/toolkit";
+import { notesUi } from "@/features/notes/store/notesSlice";
+import { timer } from "@/features/pomodoro/store/timerSlice";
 import { authSession } from "@/lib/api/authSession";
 import { baseApi } from "@/lib/api/baseApi";
 import { toasts } from "@/lib/toasts";
 
-const rootReducer = combineSlices(authSession, toasts, baseApi);
+const rootReducer = combineSlices(authSession, toasts, notesUi, timer, baseApi);
 
 export type RootState = ReturnType<typeof rootReducer>;
 

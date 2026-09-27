@@ -65,8 +65,8 @@ insights (P6).
 |---|---|---|
 | 0 | Scaffold: repo, spec, ADRs, empty backend and frontend, Docker Compose, CI | ✅ |
 | 1 | Backend foundation and authentication | ✅ |
-| 2 | Frontend shell and auth UI | 🟡 in review |
-| 3 | Snippets, notes, timer, dashboard | ⏳ |
+| 2 | Frontend shell and auth UI | ✅ |
+| 3 | Snippets, notes, timer, dashboard | 🟡 in review |
 | 4 | pgvector, embeddings, Taskiq worker, hybrid search | ⏳ |
 | 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | ⏳ |
 | 6 | API tester proxy, pomodoro stats, GitHub overview and insights | ⏳ |
@@ -129,9 +129,9 @@ first-party and no CORS preflight is needed.
 | Styling | Tailwind CSS 4 (`@tailwindcss/vite`) + `@tailwindcss/typography` | P0 / P3 |
 | Routing | React Router 8 (declarative `BrowserRouter`/`Routes`), every page lazy-loaded | P2 |
 | Client + server state | Redux Toolkit; RTK Query for every backend call | P2 |
-| Markdown | `react-markdown` + `remark-gfm` (raw HTML is escaped by default, so no DOMPurify) | P3 |
+| Markdown | `react-markdown` + `remark-gfm` (raw HTML is never rendered and `javascript:` links are dropped by default, so no DOMPurify); `@tailwindcss/typography` for the `prose` styles | P3 |
 | Icons | lucide-react (v1 has no brand icons, so GitHub uses a chart icon) | P2 |
-| Motion / dates | motion · date-fns — added when a page first needs them | P3 |
+| Motion / dates | none: CSS keyframes (staggered with a `--i` index) and the built-in `Intl.RelativeTimeFormat` / `DateTimeFormat` cover what the pages need | P3 |
 | Tests | Vitest + Testing Library + jsdom | P0 |
 | API types | `openapi-typescript` (run pinned via `npx`: it declares a TS 5 peer) from the committed `openapi.json`; CI fails if either is stale | P2 |
 
@@ -259,8 +259,8 @@ API Tester, Settings.
 |---|---|---|
 | `auth` | `{ user, accessToken, status: 'checking' \| 'authenticated' \| 'anonymous', notice }` — lives in `lib/api/authSession.ts`, next to the base query that reads it (a feature-owned slice would create an import cycle) | P2 |
 | `toasts` | app-wide notifications (`lib/toasts.ts`), e.g. the 429 message | P2 |
-| `notes` | `{ activeNoteId }` — UI state only | P3 |
-| `timer` | `{ mode, remainingSeconds, running }` — the countdown itself runs in the browser | P3 |
+| `notesUi` | `{ activeNoteId }` — UI state only | P3 |
+| `timer` | `{ mode, status, endsAt, remainingMs }` — a deadline, not a ticking counter: background tabs throttle timers, so counting down drifts while "ends at 14:25:00" can't | P3 |
 | `api` | RTK Query cache for every server collection (snippets, notes, sessions, …) | P2+ |
 
 Server data is **never** copied into a hand-written slice. RTK Query owns it: cache tags
@@ -317,14 +317,18 @@ P5: *Explain* panel (streaming markdown, level selector, Stop button) and AI tag
 suggestions as accept/dismiss chips.
 
 **NotesPage** (P3) — Two panes. Left: search and a list sorted by last update, each with a
-date and a hover delete. Right: title input and a Write/Preview toggle; preview renders
-GitHub-flavoured markdown. Title and content auto-save 1 s after typing stops, with a
-Saving…/Saved indicator. Empty state when nothing is selected.
+relative date and a delete button. Right: title input and a Write/Preview toggle; preview
+renders GitHub-flavoured markdown. `useAutosave` saves 1 s after typing stops, **one request
+at a time** (an older save can never land after a newer one), flushes on switching notes,
+and shows Unsaved/Saving…/Saved/Couldn't save (with Retry, never a retry loop). A save
+patches the note into the cached lists instead of refetching them.
 P5: *Ask your notes* panel with streaming answers and clickable `[n]` citations.
 
-**TimerPage** (P3) — Focus (25:00) and break (5:00) modes, start/pause and reset. When a
-focus period ends it posts a completed session and switches to break; when a break ends it
-returns to focus. Shows today's and all-time completed sessions.
+**TimerPage** (P3) — Focus (25:00) and break (5:00) modes, start/pause/resume and reset;
+today's and all-time sessions from `/dashboard/summary`. Completion is handled by
+`TimerEngine`, mounted once in the layout rather than on this page, so a session still
+completes, is recorded (`POST /pomodoro/sessions`) and announced while you use other pages.
+The tab title shows the countdown while it runs.
 P6: daily focus-minutes chart, current and best streak.
 
 **GithubPage** (P6) — Username search (500 ms debounce) through the backend. Shows avatar,
@@ -594,7 +598,7 @@ and use the error format in 8.4. Lists use cursor pagination:
 | GET | `/me` | `{ id, email, github_username, created_at }` | P1 |
 | POST | `/me/password` | `{ current_password, new_password }` → a fresh session; revokes every other one; 422 `INVALID_CURRENT_PASSWORD` | P1 |
 | PATCH | `/me` | set `github_username` | P6 |
-| GET | `/dashboard/summary` | counts of snippets, notes, focus sessions | P3 |
+| GET | `/dashboard/summary?tz=` | counts of snippets, notes, focus sessions, and sessions since midnight in `tz` (IANA name; 422 `INVALID_TIMEZONE`) | P3 |
 
 ### Snippets
 
@@ -659,8 +663,12 @@ If the client disconnects, stop streaming and cancel the upstream LLM request.
 ## 10. Data model
 
 All tables live in the `public` schema and are created by Alembic. Every user-owned table
-has `user_id uuid not null references users on delete cascade` and an index on `user_id`.
-`updated_at` is maintained by the application on every update.
+has `user_id uuid not null references users on delete cascade` and a composite index led
+by `user_id` that also matches the list's sort order — `(user_id, created_at, id)` for
+snippets, `(user_id, updated_at, id)` for notes, `(user_id, completed_at, id)` for
+sessions — so one index serves both the ownership filter and keyset pagination.
+`updated_at` is maintained by the application (`onupdate`), and models use
+`eager_defaults` so server-generated timestamps come back via `RETURNING`.
 
 | Table | Columns | Phase |
 |---|---|---|
@@ -831,8 +839,10 @@ current access token but not their refresh sessions.
   error shape and request ids; `/health`, `/ready` and `/ready` returning 503.
 - P2: base query token attachment, refresh-and-retry, one shared refresh under concurrent
   401s, sign-out on failed refresh, no refresh on non-401 errors; `toApiError` mapping.
-- P3: CRUD for snippets, notes, sessions; **IDOR — cross-user access to every resource
-  type returns 404**; pagination cursors.
+- P3 ✅: CRUD for snippets, notes, sessions; **IDOR — cross-user access to every resource
+  type returns the same 404 as a missing row, and leaves the row untouched**
+  (mutation-checked); a pagination walk that sees every row exactly once; literal `%`/`_`
+  in search; "today" across timezones; autosave debounce, serialisation and flush.
 - P4: search ranking with deterministic fake embeddings (keyword-only, semantic-only,
   both); embedding idempotency.
 - P5: rate limiter and quota → 429 with `Retry-After`; every redaction pattern; SSE event

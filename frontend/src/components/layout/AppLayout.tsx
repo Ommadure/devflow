@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router";
 import { useAppSelector } from "@/app/hooks";
 import { useLogoutMutation } from "@/features/auth";
+import { TimerEngine } from "@/features/pomodoro";
 import { selectUser } from "@/lib/api/authSession";
 import { cn } from "@/lib/utils/cn";
 import { MODULES } from "@/pages/modules";
@@ -37,6 +38,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen lg:flex">
+      <TimerEngine />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-white"

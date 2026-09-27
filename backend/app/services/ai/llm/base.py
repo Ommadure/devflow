@@ -75,6 +75,13 @@ class LLMRateLimited(LLMError):
         self.retry_after = retry_after
 
 
+class LLMTruncated(LLMError):
+    """The answer hit the output-token limit before it was finished. Not a "bad answer":
+    asking again with the same limit would be cut off the same way."""
+
+    code = "LLM_TRUNCATED"
+
+
 class LLMInvalidOutput(LLMError):
     """The model answered, but not with JSON matching the schema."""
 

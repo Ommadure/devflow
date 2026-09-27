@@ -7,7 +7,7 @@ import httpx
 import pytest
 import respx
 
-from app.services.ai.llm.base import LLMError, LLMRateLimited, Message, StreamChunk
+from app.services.ai.llm.base import LLMError, LLMRateLimited, LLMTruncated, Message, StreamChunk
 from app.services.ai.llm.gemini import GEMINI_API_URL, GeminiProvider
 
 MODEL = "gemini-test"
@@ -24,8 +24,8 @@ async def http() -> AsyncIterator[httpx.AsyncClient]:
         yield client
 
 
-def provider(http: httpx.AsyncClient) -> GeminiProvider:
-    return GeminiProvider("test-key", MODEL, http, sleep=no_sleep)
+def provider(http: httpx.AsyncClient, **kwargs: object) -> GeminiProvider:
+    return GeminiProvider("test-key", MODEL, http, sleep=no_sleep, **kwargs)  # type: ignore[arg-type]
 
 
 def answer(text: str, *, prompt: int = 10, output: int = 5, thoughts: int = 0) -> dict[str, object]:
@@ -138,3 +138,40 @@ def test_model_names_are_validated(http: httpx.AsyncClient) -> None:
         GeminiProvider("k", "../../evil", http)
     with pytest.raises(ValueError, match="GEMINI_API_KEY"):
         GeminiProvider("", MODEL, http)
+
+
+@respx.mock
+async def test_the_thinking_level_is_sent_when_configured(http: httpx.AsyncClient) -> None:
+    route = respx.post(f"{GEMINI_API_URL}/models/{MODEL}:generateContent").respond(
+        json=answer("{}")
+    )
+    await provider(http, thinking_level="minimal").complete(MESSAGES, temperature=0.2)
+    config = json.loads(route.calls.last.request.content)["generationConfig"]
+    assert config["thinkingConfig"] == {"thinkingLevel": "minimal"}
+
+    await provider(http).complete(MESSAGES, temperature=0.2)
+    assert "thinkingConfig" not in json.loads(route.calls.last.request.content)["generationConfig"]
+
+
+@respx.mock
+async def test_an_answer_cut_off_by_the_token_limit_is_its_own_error(
+    http: httpx.AsyncClient,
+) -> None:
+    """What happened for real: 287 of 300 tokens spent thinking, the JSON never written."""
+    cut = answer("Here is the JSON requested:\n```", output=9, thoughts=287)
+    cut["candidates"][0]["finishReason"] = "MAX_TOKENS"  # type: ignore[index]
+    respx.post(f"{GEMINI_API_URL}/models/{MODEL}:generateContent").respond(json=cut)
+    with pytest.raises(LLMTruncated) as caught:
+        await provider(http).complete(MESSAGES, temperature=0.2)
+    assert caught.value.usage.output_tokens == 296  # still billed, still recorded
+
+
+@respx.mock
+async def test_a_truncated_stream_says_so(http: httpx.AsyncClient) -> None:
+    last = answer("and then", output=3)
+    last["candidates"][0]["finishReason"] = "MAX_TOKENS"  # type: ignore[index]
+    respx.post(f"{GEMINI_API_URL}/models/{MODEL}:streamGenerateContent").respond(
+        text=sse_body(last)
+    )
+    text = "".join([c.text async for c in provider(http).stream(MESSAGES, temperature=0.3)])
+    assert text.startswith("and then") and "Cut short" in text

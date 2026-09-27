@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import { Spinner } from "@/components/ui/Loaders";
+import { TagSuggestions } from "@/features/ai";
 import { ApiErrorMessage } from "@/features/auth";
 import { toApiError } from "@/lib/api/errors";
 import type { Snippet } from "@/lib/api/types";
@@ -69,6 +70,15 @@ export function SnippetForm({ snippet, onDone }: { snippet?: Snippet; onDone: ()
             onChange={(e) => setTags(e.target.value)} />
         </div>
       </div>
+      {snippet && (
+        <TagSuggestions
+          snippetId={snippet.id}
+          currentTags={parseTags(tags)}
+          onAddTag={(tag) => setTags((current) => [...parseTags(current), tag].join(", "))}
+          onUseLanguage={setLanguage}
+          onUseDescription={setDescription}
+        />
+      )}
       <div>
         <label htmlFor={ids.code} className="label">
           Code

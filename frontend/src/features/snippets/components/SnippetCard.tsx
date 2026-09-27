@@ -1,4 +1,4 @@
-import { Check, Copy, Pencil, Star, Trash2 } from "lucide-react";
+import { Check, Copy, Pencil, Sparkles, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SearchHit, Snippet } from "@/lib/api/types";
 import { cn } from "@/lib/utils/cn";
@@ -17,9 +17,10 @@ interface Props {
   index: number;
   onEdit: (snippet: Snippet) => void;
   onDelete: (snippet: Snippet) => void;
+  onExplain: (snippet: Snippet) => void;
 }
 
-export function SnippetCard({ snippet, matchType, index, onEdit, onDelete }: Props) {
+export function SnippetCard({ snippet, matchType, index, onEdit, onDelete, onExplain }: Props) {
   const [copied, setCopied] = useState(false);
   const [update] = useUpdateSnippetMutation();
 
@@ -89,6 +90,10 @@ export function SnippetCard({ snippet, matchType, index, onEdit, onDelete }: Pro
           )}
         </div>
         <div className="flex shrink-0 opacity-70 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <button type="button" className={action} onClick={() => onExplain(snippet)}
+            aria-label={`Explain ${snippet.title}`}>
+            <Sparkles aria-hidden className="size-4" />
+          </button>
           <button type="button" className={action} onClick={() => void copy()}
             aria-label={copied ? "Copied" : `Copy ${snippet.title}`}>
             {copied ? <Check aria-hidden className="size-4 text-success" /> : <Copy aria-hidden className="size-4" />}

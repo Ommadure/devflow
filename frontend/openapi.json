@@ -250,6 +250,190 @@
         }
       }
     },
+    "/api/v1/me/ai-usage": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Ai Usage",
+        "description": "Today's AI requests, for the \"12/50 left today\" indicator.",
+        "operationId": "ai_usage_api_v1_me_ai_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiUsageOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/snippets/{snippet_id}/ai/explain": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Explain Snippet",
+        "description": "Stream an explanation of the snippet, pitched at the requested level.",
+        "operationId": "explain_snippet_api_v1_snippets__snippet_id__ai_explain_post",
+        "parameters": [
+          {
+            "name": "snippet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Snippet Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events: `token`\u2026 then `done`, or `error`",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {}
+            }
+          },
+          "404": {
+            "description": "Not found (or not yours)"
+          },
+          "429": {
+            "description": "Rate limited, or the daily AI quota is used up"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/snippets/{snippet_id}/ai/tags": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Suggest Snippet Tags",
+        "description": "Suggested language, tags and description. Nothing is saved: the user picks.",
+        "operationId": "suggest_snippet_tags_api_v1_snippets__snippet_id__ai_tags_post",
+        "parameters": [
+          {
+            "name": "snippet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Snippet Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnippetTagSuggestion"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (or not yours)"
+          },
+          "429": {
+            "description": "Rate limited, or the daily AI quota is used up"
+          },
+          "502": {
+            "description": "The model's answer was unusable, even after one repair attempt"
+          },
+          "503": {
+            "description": "The AI provider is busy"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notes/ask": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Ask Notes",
+        "description": "Answer from the user's notes: `sources` first, then the cited answer.",
+        "operationId": "ask_notes_api_v1_notes_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events: `token`\u2026 then `done`, or `error`",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {}
+            }
+          },
+          "404": {
+            "description": "Not found (or not yours)"
+          },
+          "429": {
+            "description": "Rate limited, or the daily AI quota is used up"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/snippets": {
       "get": {
         "tags": [
@@ -1090,6 +1274,50 @@
   },
   "components": {
     "schemas": {
+      "AiUsageOut": {
+        "properties": {
+          "used": {
+            "type": "integer",
+            "title": "Used"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "remaining": {
+            "type": "integer",
+            "title": "Remaining"
+          },
+          "resets_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Resets At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "used",
+          "limit",
+          "remaining",
+          "resets_at"
+        ],
+        "title": "AiUsageOut"
+      },
+      "AskRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskRequest"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "current_password": {
@@ -1140,6 +1368,22 @@
           "focus_sessions_today"
         ],
         "title": "DashboardSummary"
+      },
+      "ExplainRequest": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate",
+              "expert"
+            ],
+            "title": "Level",
+            "default": "intermediate"
+          }
+        },
+        "type": "object",
+        "title": "ExplainRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1726,6 +1970,39 @@
           "updated_at"
         ],
         "title": "SnippetOut"
+      },
+      "SnippetTagSuggestion": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Language"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Tags"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 140,
+            "minLength": 1,
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "tags",
+          "description"
+        ],
+        "title": "SnippetTagSuggestion",
+        "description": "What the model must return for auto-tagging; validated, then normalised."
       },
       "SnippetUpdate": {
         "properties": {

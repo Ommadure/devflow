@@ -2,6 +2,7 @@ import { LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router";
 import { useAppSelector } from "@/app/hooks";
+import { AiUsageBadge } from "@/features/ai/shell";
 import { useLogoutMutation } from "@/features/auth";
 import { TimerEngine } from "@/features/pomodoro";
 import { selectUser } from "@/lib/api/authSession";
@@ -107,6 +108,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="space-y-2 border-t border-border p-4">
+          <AiUsageBadge />
           <p className="truncate text-xs text-text/60" title={user?.email}>
             {user?.email}
           </p>

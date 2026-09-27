@@ -1,0 +1,38 @@
+# HTTPS for the API: Caddy gets and renews a Let's Encrypt certificate for API_DOMAIN by
+# itself (ports 80 and 443 must be open, see docs/deploy.md).
+{
+	servers {
+		# Browsers reach the API through Vercel's /api/v1 rewrite, so the peer Caddy sees
+		# is a Vercel edge server; the user's address is in X-Forwarded-For, which Vercel
+		# sets itself. Trust it, or every user shares one IP and one login rate limit.
+		# The cost: a client calling this host directly can fake it (ADR 0009).
+		trusted_proxies static 0.0.0.0/0 ::/0
+	}
+}
+
+{$API_DOMAIN} {
+	# The API refuses bodies over 2 MiB too (BodySizeLimitMiddleware); this stops them
+	# at the edge of the VM.
+	request_body {
+		max_size 2MB
+	}
+
+	# Compress JSON only: compressing text/event-stream would hold AI tokens back in the
+	# compressor instead of sending each one as it arrives.
+	encode {
+		zstd
+		gzip
+		match {
+			header Content-Type application/json*
+		}
+	}
+
+	reverse_proxy api:8000 {
+		flush_interval -1 # stream responses (SSE) straight through
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

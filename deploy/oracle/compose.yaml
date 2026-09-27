@@ -1,0 +1,104 @@
+# Production on one Oracle A1 (ARM) VM (ADR 0009, docs/deploy.md): Caddy (HTTPS) → API;
+# a Taskiq worker and the one scheduler; Redis for the queue, rate limits and caches.
+# Postgres is Neon, external over TLS.
+#
+#   deploy/oracle/deploy.sh      # pull, build, (re)start; links .env -> .env.production
+#
+# Secrets live in deploy/oracle/.env.production on the VM (never committed).
+
+name: devflow
+
+x-backend: &backend
+  build: ../../backend # built on the VM itself, so natively for ARM (aarch64)
+  image: devflow-backend:latest
+  env_file: .env.production
+  environment:
+    REDIS_URL: redis://redis:6379/0 # the compose Redis, whatever the env file says
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" } # logs can't fill the disk
+
+services:
+  redis:
+    image: redis:7-alpine
+    # Append-only file: queued embedding jobs survive a restart (the sweep would catch
+    # them anyway). noeviction: a full Redis refuses writes rather than silently dropping
+    # queued jobs; everything else in it expires on its own.
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    mem_limit: 192m
+    logging: *logging
+
+  api:
+    <<: *backend
+    # One API container, so migrating on start can't race. Alembic uses
+    # DATABASE_DIRECT_URL (Neon's non-pooled host). Only Caddy can reach the API: it's on
+    # the compose network and never published, so trusting proxy headers is safe.
+    command: >-
+      sh -c "alembic upgrade head &&
+      exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips='*' --no-access-log"
+    expose: ["8000"]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s # migrations first; Neon may be waking from scale-to-zero
+    depends_on:
+      redis:
+        condition: service_healthy
+    mem_limit: 1g # the embedding model (~250 MB) loads on the first search
+
+  worker:
+    <<: *backend
+    command: taskiq worker app.workers.broker:broker app.workers.tasks --workers 1
+    depends_on:
+      api:
+        condition: service_healthy # the schema is migrated before any job runs
+    mem_limit: 1g # loads the embedding model too
+
+  scheduler:
+    <<: *backend
+    # The ONLY scheduler: a second one would run every cron job twice.
+    command: taskiq scheduler app.workers.broker:scheduler app.workers.tasks
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: 256m
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80" # Let's Encrypt HTTP challenge + redirect to HTTPS
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in deploy/oracle/.env.production}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificates survive restarts (Let's Encrypt rate limits)
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: 128m
+    logging: *logging
+
+volumes:
+  redis_data:
+  caddy_data:
+  caddy_config:

@@ -69,16 +69,16 @@ insights (P6).
 | 3 | Snippets, notes, timer, dashboard | ✅ |
 | 4 | pgvector, embeddings, Taskiq worker, hybrid search | ✅ |
 | 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | ✅ |
-| 6 | API tester proxy, pomodoro stats, GitHub overview and insights | 🟡 in review |
-| 7 | Search evaluation, hardening, production deployment | ⏳ |
+| 6 | API tester proxy, pomodoro stats, GitHub overview and insights | ✅ |
+| 7 | Search evaluation, hardening, production deployment | 🟡 in review; deploy pending the A1 VM |
 
 ---
 
 ## 4. Architecture
 
 ```
-┌──────────────── Vercel ────────────────┐        ┌──────────── Oracle Cloud VM ─────────────┐
-│ React + TS + RTK Query (static build)  │        │  Caddy (TLS, shared with ReviewPilot)     │
+┌──────────────── Vercel ────────────────┐        ┌───────── Oracle Cloud A1 VM ─────────────┐
+│ React + TS + RTK Query (static build)  │        │  Caddy (TLS, Let's Encrypt, 2 MB bodies)  │
 │                                        │ /api/* │    │                                      │
 │ Browser calls same-origin /api/* ──────┼───────►│  FastAPI (api)                            │
 │ ◄──────────── JSON / SSE ──────────────┼────────│   issues + verifies JWTs · scopes every   │
@@ -115,6 +115,7 @@ first-party and no CORS preflight is needed.
 | 0006 | API tester proxied server-side | Removes browser CORS limits — and makes SSRF protection mandatory |
 | 0007 | Monorepo split by deployable | Two languages, two toolchains, two deploy targets |
 | 0008 | Neon Postgres + an Oracle Always Free VM + Vercel | $0 hosting that still runs a real worker and scheduler |
+| 0009 | DevFlow gets its own A1 VM; the API trusts the forwarded client IP | ReviewPilot's 1 GB VM has no room; per-IP limits must see users, not Vercel |
 
 ---
 
@@ -754,8 +755,12 @@ One SQL query with CTEs, always scoped to `user_id` and the filters:
 which the evaluation needs. The keyword branch ORs an `english` and a `simple` parse of the
 query, matching how prose and code were indexed. The semantic branch only counts neighbours
 within cosine distance 0.4 (similarity ≥ 0.6) — nearest neighbours always exist, and
-without a cut-off every query would "match" everything. Known weakness to tune in P7:
-one-word queries embed poorly, so they can pull in a weak semantic neighbour.
+without a cut-off every query would "match" everything. P7's evaluation kept 0.4 on
+evidence: right answers sit at 0.19–0.51 and the nearest snippet to an unanswerable
+question at 0.37–0.47, so no cut-off gives both; 0.4 is the knee of the sweep
+(`evals/search/README.md`). Both vector queries run with `SET LOCAL hnsw.iterative_scan =
+strict_order`: pgvector filters `user_id` after the HNSW scan, and without iterative scans
+other users' vectors can crowd out every one of a user's matches (regression-tested).
 
 ### 11.3 Explain this code (P5 ✅)
 
@@ -870,8 +875,10 @@ before they enter a URL path.
 | Secret redaction before any LLM call | `redaction.py` | P5 |
 | Rate limits and daily AI quota | limiter | P5 |
 | SSRF protection on the proxy | `api_tester.py` | P6 |
-| Request body size limits | middleware / Caddy | P7 |
-| CSP and security headers on the frontend | `vercel.json` | P7 |
+| Request body size limits (2 MiB → 413 `PAYLOAD_TOO_LARGE`) | `BodySizeLimitMiddleware` + Caddy | P7 ✅ |
+| CSP and security headers on the frontend (no inline script or style) | `vercel.json`, checked by `deploy.test.ts` and `npm run preview` | P7 ✅ |
+| `Cache-Control: no-store`, `nosniff`, `DENY` framing on every API response | `RequestContextMiddleware` | P7 ✅ |
+| Vector search can't be emptied by other users' data | `repositories/_vector.py` | P7 ✅ |
 | Bound parameters only — never string-formatted SQL | everywhere | always |
 | `pip-audit` and `npm audit` in CI | CI | P0 |
 
@@ -915,6 +922,10 @@ current access token but not their refresh sessions.
   redirects into the private network, gzip bombs and header smuggling; cURL parser cases
   (bundled/glued flags, `--json`, `-u`); streaks and timezones; GitHub caching, ETag
   revalidation, rate limits; insights that never send commit messages.
+- P7 ✅: filtered HNSW scans find a user's rows behind 20 nearer rows of another user's
+  (snippets and note passages; mutation-checked); 413 for declared and chunked oversized
+  bodies; security headers on success, 401, 404 and 413; the evaluation's metrics,
+  dataset validation and cleanup; `vercel.json` rewrite and CSP.
 - **≥ 80% coverage** on `services/` and `repositories/` from P3.
 
 ### Search evaluation (P7)
@@ -923,6 +934,8 @@ current access token but not their refresh sessions.
 `queries.yaml` with expected ids — including ones keywords fail on ("stop a function from
 firing too often" → debounce). Report **Recall@5**, **MRR@10** and p50/p95 latency for
 keyword, semantic and hybrid; write timestamped JSON and a Markdown table for the README.
+Results (P7 ✅): hybrid Recall@5 0.85 / MRR@10 0.79, semantic 0.82 / 0.76, keyword
+0.33 / 0.33 (0 on intent queries); details and decisions in `evals/search/README.md`.
 
 ---
 
@@ -955,12 +968,12 @@ build, `npm audit`. CI holds no real credentials.
 
 ### Deployment (P7)
 
-- **Frontend** — Vercel, Root Directory `frontend`, a rewrite of `/api/*` to the API's
+- **Frontend** — Vercel, Root Directory `frontend`, a rewrite of `/api/v1/*` to the API's
   hostname, and an SPA fallback.
-- **Backend** — `deploy/oracle/`: api, worker and scheduler from one image, plus Redis,
-  on the Oracle Always Free VM that also runs ReviewPilot. One shared Caddy terminates TLS
-  for both apps. Migrations run with `DATABASE_DIRECT_URL` on deploy; embeddings are
-  backfilled after the first deploy.
+- **Backend** — `deploy/oracle/`: api, worker and scheduler from one image, plus Redis
+  and Caddy, on DevFlow's own Oracle Always Free A1 (ARM) VM (ADR 0009; ReviewPilot's
+  1 GB VM had no room for the ~735 MB stack). Migrations run with `DATABASE_DIRECT_URL`
+  when the API starts. Step by step: [deploy.md](deploy.md).
 - **Database** — Neon, with `CREATE EXTENSION vector` in the P4 migration.
 
 ### Environment variables

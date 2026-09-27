@@ -1,6 +1,6 @@
 # ADR 0008: Neon + an Oracle Always Free VM + Vercel
 
-- **Status:** Accepted
+- **Status:** Accepted; running next to ReviewPilot superseded by [ADR 0009](0009-own-a1-vm-and-client-ip.md)
 - **Date:** 2026-09-26
 - **Replaces:** the original "Supabase Postgres; API and worker on Render; Upstash Redis"
 

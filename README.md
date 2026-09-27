@@ -7,8 +7,9 @@ GitHub analytics and an HTTP API tester — with AI on top: hybrid semantic sear
 **Stack:** React 19 + TypeScript + Redux Toolkit / RTK Query (Vite) · FastAPI + SQLAlchemy async · Postgres
 + pgvector · Redis · Taskiq · FastEmbed · Gemini.
 
-> 🚧 **Being rebuilt from its specification, one phase at a time.** Phase 6 (API tester,
-> focus stats, GitHub insights) is in review. See [the spec](docs/application-prompt.md) for the full design and
+> 🚧 **Being rebuilt from its specification, one phase at a time.** Phase 7 (search
+> evaluation, hardening, deployment) is in review; the production deploy is next. See
+> [the spec](docs/application-prompt.md) for the full design and
 > [the ADRs](docs/adr/README.md) for why each choice was made.
 
 ## Roadmap
@@ -21,8 +22,22 @@ GitHub analytics and an HTTP API tester — with AI on top: hybrid semantic sear
 | 3 | Snippets, notes, timer, dashboard | ✅ |
 | 4 | Embeddings, Taskiq worker, hybrid search | ✅ |
 | 5 | LLM features: explain, auto-tag, ask your notes | ✅ |
-| 6 | API tester proxy, pomodoro stats, GitHub insights | 🟡 |
-| 7 | Search evaluation, hardening, deployment | ⏳ |
+| 6 | API tester proxy, pomodoro stats, GitHub insights | ✅ |
+| 7 | Search evaluation, hardening, deployment | 🟡 |
+
+## Search quality
+
+Measured on 60 realistic snippets and 30 queries, 16 of which describe the goal without
+using the snippet's words ([evals/search](evals/search/README.md)):
+
+| Mode | Recall@5 | MRR@10 | Recall@5, intent queries | p50 latency |
+|---|---|---|---|---|
+| keyword (Postgres full-text) | 0.33 | 0.33 | 0.00 | 10 ms |
+| semantic (bge-small + pgvector) | 0.82 | 0.76 | 0.81 | 28 ms |
+| **hybrid (RRF)** — the default | **0.85** | **0.79** | **0.81** | 32 ms |
+
+The evaluation also set the semantic cut-off from data, and checking it at multi-user scale
+found (and fixed) filtered HNSW scans silently dropping a user's own matches.
 
 ## Run it locally
 
@@ -58,10 +73,19 @@ cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
+## Deployment
+
+Frontend on Vercel (a `/api/v1` rewrite keeps the API same-origin, so the refresh cookie
+is first-party); API, worker, scheduler and Redis on an Oracle Always Free A1 VM behind
+Caddy; Postgres on Neon. Step by step: [docs/deploy.md](docs/deploy.md).
+CI builds the production image on every change.
+
 ## Repository layout
 
 ```
-backend/    FastAPI service (and, from Phase 4, the Taskiq worker and scheduler)
-frontend/   React app, deployed to Vercel
-docs/       Specification and architecture decision records
+backend/        FastAPI service, Taskiq worker and scheduler (one image)
+frontend/       React app, deployed to Vercel (vercel.json: rewrite + CSP)
+evals/search/   Search evaluation: dataset, runner, recorded results
+deploy/oracle/  Production compose, Caddyfile, VM bootstrap and deploy scripts
+docs/           Specification, deploy guide, architecture decision records
 ```

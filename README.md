@@ -4,11 +4,11 @@ A developer productivity dashboard — code snippets, markdown notes, a Pomodoro
 GitHub analytics and an HTTP API tester — with AI on top: hybrid semantic search, streaming
 "explain this code", AI tag suggestions and "ask your notes" with citations.
 
-**Stack:** React + TypeScript + Redux Toolkit (Vite) · FastAPI + SQLAlchemy async · Postgres
+**Stack:** React 19 + TypeScript + Redux Toolkit / RTK Query (Vite) · FastAPI + SQLAlchemy async · Postgres
 + pgvector · Redis · Taskiq · FastEmbed · Gemini.
 
-> 🚧 **Being rebuilt from its specification, one phase at a time.** Phase 1 (backend and
-> authentication) is in review. See [the spec](docs/application-prompt.md) for the full design and
+> 🚧 **Being rebuilt from its specification, one phase at a time.** Phase 2 (frontend shell
+> and sign-in) is in review. See [the spec](docs/application-prompt.md) for the full design and
 > [the ADRs](docs/adr/README.md) for why each choice was made.
 
 ## Roadmap
@@ -16,8 +16,8 @@ GitHub analytics and an HTTP API tester — with AI on top: hybrid semantic sear
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Scaffold: spec, ADRs, empty backend and frontend, Docker Compose, CI | ✅ |
-| 1 | Backend foundation and authentication | 🟡 |
-| 2 | Frontend shell and auth UI | ⏳ |
+| 1 | Backend foundation and authentication | ✅ |
+| 2 | Frontend shell and auth UI | 🟡 |
 | 3 | Snippets, notes, timer, dashboard | ⏳ |
 | 4 | Embeddings, Taskiq worker, hybrid search | ⏳ |
 | 5 | LLM features: explain, auto-tag, ask your notes | ⏳ |
@@ -32,13 +32,16 @@ Prerequisites: Docker, [uv](https://docs.astral.sh/uv/), Node 22.12+.
 cd backend && cp -n .env.example .env         # then set JWT_SECRET (the file says how)
 cd .. && docker compose up -d --build         # API :8000, Postgres :5434, Redis :6380
 ./backend/scripts/smoke_auth.sh               # register → refresh → change password → logout
-cd frontend && npm install && npm run dev     # app on :5173
+cd frontend && npm install && npm run dev     # app on :5173 — create an account there
 ```
 
 Prefer running the API outside Docker? `docker compose up -d postgres redis`, then
 `cd backend && uv run alembic upgrade head && uv run uvicorn app.main:app --reload`.
 
 API docs: http://localhost:8000/docs
+
+Changed an endpoint? `cd frontend && npm run gen:api` regenerates `openapi.json` and the
+TypeScript types; CI fails if they're out of date.
 
 ## Checks
 

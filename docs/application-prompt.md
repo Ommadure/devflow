@@ -64,8 +64,8 @@ insights (P6).
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Scaffold: repo, spec, ADRs, empty backend and frontend, Docker Compose, CI | ✅ |
-| 1 | Backend foundation and authentication | 🟡 in review |
-| 2 | Frontend shell and auth UI | ⏳ |
+| 1 | Backend foundation and authentication | ✅ |
+| 2 | Frontend shell and auth UI | 🟡 in review |
 | 3 | Snippets, notes, timer, dashboard | ⏳ |
 | 4 | pgvector, embeddings, Taskiq worker, hybrid search | ⏳ |
 | 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | ⏳ |
@@ -125,14 +125,15 @@ first-party and no CORS preflight is needed.
 | Concern | Choice | Phase |
 |---|---|---|
 | Build | Vite 8 | P0 |
-| UI | React 18 + TypeScript 6 | P0 |
+| UI | React 19 + TypeScript 6 (TS 7 waits for typescript-eslint support) | P0 / P2 |
 | Styling | Tailwind CSS 4 (`@tailwindcss/vite`) + `@tailwindcss/typography` | P0 / P3 |
-| Routing | React Router 7, every route lazy-loaded | P2 |
+| Routing | React Router 8 (declarative `BrowserRouter`/`Routes`), every page lazy-loaded | P2 |
 | Client + server state | Redux Toolkit; RTK Query for every backend call | P2 |
 | Markdown | `react-markdown` + `remark-gfm` (raw HTML is escaped by default, so no DOMPurify) | P3 |
-| Motion / icons / dates | motion · lucide-react · date-fns | P2 |
+| Icons | lucide-react (v1 has no brand icons, so GitHub uses a chart icon) | P2 |
+| Motion / dates | motion · date-fns — added when a page first needs them | P3 |
 | Tests | Vitest + Testing Library + jsdom | P0 |
-| API types | `openapi-typescript` generated from the FastAPI schema | P2 |
+| API types | `openapi-typescript` (run pinned via `npx`: it declares a TS 5 peer) from the committed `openapi.json`; CI fails if either is stale | P2 |
 
 ### Backend
 
@@ -175,7 +176,7 @@ devflow/
 │   │   ├── pages/            One component per route; composition only
 │   │   ├── features/<name>/  api/ (RTK Query endpoints) · store/ (slice) · hooks/ · lib/ · types.ts · index.ts
 │   │   ├── components/       ui/ (Modal, ConfirmDialog, loaders, ApiConnectionCard) · layout/ (AppLayout)
-│   │   ├── lib/              api/ (base query, errors, SSE, generated schema) · utils/cn.ts
+│   │   ├── lib/              api/ (base query, auth session slice, refresh, errors, generated schema; SSE in P5) · toasts · utils/cn.ts
 │   │   ├── hooks/ styles/ types/ test/
 │   ├── vite.config.ts  vercel.json  package.json
 ├── backend/                  FastAPI service, Taskiq worker and scheduler (one image)
@@ -256,7 +257,8 @@ API Tester, Settings.
 
 | Slice | State | Phase |
 |---|---|---|
-| `auth` | `{ user, accessToken, status: 'checking' \| 'authenticated' \| 'anonymous' }` | P2 |
+| `auth` | `{ user, accessToken, status: 'checking' \| 'authenticated' \| 'anonymous', notice }` — lives in `lib/api/authSession.ts`, next to the base query that reads it (a feature-owned slice would create an import cycle) | P2 |
+| `toasts` | app-wide notifications (`lib/toasts.ts`), e.g. the 429 message | P2 |
 | `notes` | `{ activeNoteId }` — UI state only | P3 |
 | `timer` | `{ mode, remainingSeconds, running }` — the countdown itself runs in the browser | P3 |
 | `api` | RTK Query cache for every server collection (snippets, notes, sessions, …) | P2+ |
@@ -275,15 +277,21 @@ In `lib/api/`:
   default, and the refresh cookie's `Path=/api/v1/auth` keeps it off every other request.
 - The base query reads the access token from Redux **per request** and sets
   `Authorization: Bearer <access_token>`.
-- **On 401:** call `/auth/refresh` once and retry. If the refresh fails, clear the session.
-  Concurrent 401s share **one** refresh promise so they cannot race — and because refresh
-  tokens rotate, a second parallel refresh would present an already-used token and revoke
-  the whole session.
+- **On 401:** call `/auth/refresh` once and retry. If the refresh is rejected, clear the
+  session with a "your session has ended" notice; if the server is unreachable, keep the
+  session and surface the error instead of signing the user out. `/auth/*` routes are
+  exempt — a 401 from login means a wrong password.
+- **One refresh at a time** (`lib/api/refresh.ts`): concurrent 401s share one in-flight
+  promise, and a Web Lock (`navigator.locks`) makes other tabs wait their turn. Refresh
+  tokens rotate, so a second parallel refresh would present an already-used token. If a
+  refresh still loses a race, the server answers `REFRESH_TOKEN_ROTATED` and the client
+  retries once with the newer cookie.
 - `toApiError()` maps every failure — backend error bodies, dropped connections
   (`FETCH_ERROR` → `NETWORK_ERROR`), a proxy's HTML page — to a typed `ApiError`
   `{ status, code, message, details, requestId }`.
-- On 429: a toast with the retry time from `Retry-After`.
-- `openapi-typescript` types in `lib/api/schema.ts` via `npm run gen:api`.
+- On 429: a toast with the retry time (`details.retry_after`).
+- `openapi-typescript` types in `lib/api/schema.ts` via `npm run gen:api` (exports the
+  backend schema to `frontend/openapi.json`, then generates the types).
 - P5: `lib/api/sse.ts` — streaming with `fetch` + `ReadableStream` + `TextDecoder`
   (`EventSource` cannot send an `Authorization` header), parsing `event:`/`data:` lines,
   with `AbortController` cancellation.
@@ -349,11 +357,12 @@ Dark only. Tailwind 4 theme tokens (`@theme` in `styles/index.css`):
 | `text` | `#e5e7eb` | body text |
 | `accent` | `#3b82f6` | primary actions, focus rings |
 
-Fonts: **Inter** (UI) and **JetBrains Mono** (code). Component classes: `.card`,
-`.btn-primary`, `.btn-secondary`, `.input-field`. Shared components: `Modal` (Escape
-closes, body scroll lock, `aria-modal`, labelled title), `ConfirmDialog` (async confirm
-with its own loading and error state), `PageLoader` / `FullPageLoader` (`role="status"`),
-`AppLayout`. Merge classes with `cn()`.
+Fonts: **Inter** (UI) and **JetBrains Mono** (code). Component classes, declared with
+Tailwind 4's `@utility` so they compose: `card`, `btn`, `btn-primary`, `btn-secondary`,
+`btn-ghost`, `label`, `input-field`. Shared components: `AppLayout`, `Alert`, `Toaster`,
+`PageLoader` / `FullPageLoader` (`role="status"`), `ApiConnectionCard`; from P3, `Modal`
+(Escape closes, focus trapped, labelled title) and `ConfirmDialog` (async confirm with its
+own loading and error state). Merge classes with `cn()`.
 
 **Accessibility is a requirement, not polish:** semantic HTML, keyboard reachability,
 visible focus, labelled controls, `aria-live` on loading states. Keep it intact in every

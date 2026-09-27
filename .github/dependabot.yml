@@ -9,6 +9,17 @@ updates:
     directory: /frontend
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    groups:
+      # react and react-dom (and their types) must always move together.
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+    ignore:
+      # typescript-eslint doesn't support TypeScript 7 yet; revisit when it does.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # These types describe the Node we run (22 locally, 24 in CI), not the newest Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

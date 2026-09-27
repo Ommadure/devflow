@@ -5,7 +5,10 @@ import { resetRefreshStateForTests } from "@/lib/api/refresh";
 
 // jsdom has <dialog> but not showModal()/close(). Toggle the `open` attribute, which is
 // what tests observe; focus trapping and Escape are the real browser's job.
-if (typeof HTMLDialogElement.prototype.showModal !== "function") {
+if (
+  typeof HTMLDialogElement !== "undefined" &&
+  typeof HTMLDialogElement.prototype.showModal !== "function"
+) {
   if (!("open" in HTMLDialogElement.prototype)) {
     Object.defineProperty(HTMLDialogElement.prototype, "open", {
       get(this: HTMLDialogElement) {

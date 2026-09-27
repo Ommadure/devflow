@@ -12,7 +12,7 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
-from app.core.middleware import RequestContextMiddleware
+from app.core.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
 from app.core.observability import init_sentry
 from app.core.redis import get_redis
 from app.db.session import get_engine
@@ -57,6 +57,8 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     register_error_handlers(app)
+    # Inside CORS, so even a 413 carries the CORS headers the browser needs to read it.
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

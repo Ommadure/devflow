@@ -43,7 +43,7 @@ def event_stream(events: AsyncIterator[str]) -> StreamingResponse:
         events,
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-store",
             # Tell proxies (nginx, some CDNs) not to buffer: each token should arrive as
             # soon as it's produced, not in one lump at the end.
             "X-Accel-Buffering": "no",

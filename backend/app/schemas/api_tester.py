@@ -49,7 +49,7 @@ class ExplainErrorRequest(BaseModel):
     status_text: Annotated[str, StringConstraints(max_length=200)] = ""
     response_headers: Annotated[list[tuple[str, str]], Field(max_length=100)] = []
     # Only the start of the body is sent to the model: enough to see the error message.
-    response_body: Annotated[str, StringConstraints(max_length=1_000_000)] = ""
+    response_body: Annotated[str, StringConstraints(max_length=10_000)] = ""
 
 
 class HttpErrorExplanation(BaseModel):

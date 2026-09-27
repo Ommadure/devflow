@@ -136,6 +136,7 @@ _HTTP_CODES = {
     400: ("BAD_REQUEST", "Bad request."),
     404: ("NOT_FOUND", "Not found."),
     405: ("METHOD_NOT_ALLOWED", "Method not allowed."),
+    413: ("PAYLOAD_TOO_LARGE", "The request body is too large."),
 }
 
 

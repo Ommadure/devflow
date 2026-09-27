@@ -4,8 +4,31 @@
 #   Redis                localhost:6380
 # Host ports avoid 5432 (a native Postgres), and ReviewPilot's 5433 / 6379, so both
 # stacks can run at once. Containers still reach each other on the default ports.
+#   worker               Taskiq worker: embeds snippets (logs: docker compose logs -f worker)
+#   scheduler            Taskiq scheduler: periodic jobs (exactly one!)
 # Only the databases? `docker compose up -d postgres redis` and run uvicorn yourself.
-# The Taskiq worker and scheduler join in Phase 4.
+# The worker doesn't hot-reload: after changing job code, `docker compose restart worker`.
+
+x-backend: &backend
+  build: ./backend
+  image: devflow-backend
+  # Secrets (JWT_SECRET) come from backend/.env; the values below override its localhost
+  # settings so containers reach the other services by name and use the baked-in model.
+  env_file:
+    - path: ./backend/.env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+asyncpg://devflow:devflow@postgres:5432/devflow
+    DATABASE_DIRECT_URL: ""
+    REDIS_URL: redis://redis:6379/0
+    FASTEMBED_CACHE_PATH: /app/models
+  volumes:
+    - ./backend/app:/app/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
 
 services:
   postgres:
@@ -36,16 +59,7 @@ services:
       retries: 10
 
   api:
-    build: ./backend
-    # Secrets (JWT_SECRET) come from backend/.env; the URLs below override its localhost
-    # values so the container reaches the other services by name.
-    env_file:
-      - path: ./backend/.env
-        required: false
-    environment:
-      DATABASE_URL: postgresql+asyncpg://devflow:devflow@postgres:5432/devflow
-      DATABASE_DIRECT_URL: ""
-      REDIS_URL: redis://redis:6379/0
+    <<: *backend
     # Apply migrations, then serve with auto-reload on source changes.
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --no-access-log"
     ports:
@@ -53,17 +67,28 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 10s
+
+  worker:
+    <<: *backend
+    # One process: each would load its own copy of the model. It runs many jobs
+    # concurrently anyway (they're async; inference runs in a thread).
+    command: taskiq worker app.workers.broker:broker app.workers.tasks --workers 1
+    depends_on:
+      api:
+        condition: service_healthy  # the API has applied the migrations
+
+  scheduler:
+    <<: *backend
+    command: taskiq scheduler app.workers.broker:scheduler app.workers.tasks
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   postgres-data:

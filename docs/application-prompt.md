@@ -64,11 +64,11 @@ insights (P6).
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Scaffold: repo, spec, ADRs, empty backend and frontend, Docker Compose, CI | ✅ |
-| 1 | Backend foundation and authentication | 🟡 in review |
-| 2 | Frontend shell and auth UI | ⏳ |
-| 3 | Snippets, notes, timer, dashboard | ⏳ |
-| 4 | pgvector, embeddings, Taskiq worker, hybrid search | ⏳ |
-| 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | ⏳ |
+| 1 | Backend foundation and authentication | ✅ |
+| 2 | Frontend shell and auth UI | ✅ |
+| 3 | Snippets, notes, timer, dashboard | ✅ |
+| 4 | pgvector, embeddings, Taskiq worker, hybrid search | ✅ |
+| 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | 🟡 in review |
 | 6 | API tester proxy, pomodoro stats, GitHub overview and insights | ⏳ |
 | 7 | Search evaluation, hardening, production deployment | ⏳ |
 
@@ -125,14 +125,15 @@ first-party and no CORS preflight is needed.
 | Concern | Choice | Phase |
 |---|---|---|
 | Build | Vite 8 | P0 |
-| UI | React 18 + TypeScript 6 | P0 |
+| UI | React 19 + TypeScript 6 (TS 7 waits for typescript-eslint support) | P0 / P2 |
 | Styling | Tailwind CSS 4 (`@tailwindcss/vite`) + `@tailwindcss/typography` | P0 / P3 |
-| Routing | React Router 7, every route lazy-loaded | P2 |
+| Routing | React Router 8 (declarative `BrowserRouter`/`Routes`), every page lazy-loaded | P2 |
 | Client + server state | Redux Toolkit; RTK Query for every backend call | P2 |
-| Markdown | `react-markdown` + `remark-gfm` (raw HTML is escaped by default, so no DOMPurify) | P3 |
-| Motion / icons / dates | motion · lucide-react · date-fns | P2 |
+| Markdown | `react-markdown` + `remark-gfm` (raw HTML is never rendered and `javascript:` links are dropped by default, so no DOMPurify); `@tailwindcss/typography` for the `prose` styles | P3 |
+| Icons | lucide-react (v1 has no brand icons, so GitHub uses a chart icon) | P2 |
+| Motion / dates | none: CSS keyframes (staggered with a `--i` index) and the built-in `Intl.RelativeTimeFormat` / `DateTimeFormat` cover what the pages need | P3 |
 | Tests | Vitest + Testing Library + jsdom | P0 |
-| API types | `openapi-typescript` generated from the FastAPI schema | P2 |
+| API types | `openapi-typescript` (run pinned via `npx`: it declares a TS 5 peer) from the committed `openapi.json`; CI fails if either is stale | P2 |
 
 ### Backend
 
@@ -148,9 +149,9 @@ first-party and no CORS preflight is needed.
 | Logging / errors | structlog (JSON in production) · Sentry when `SENTRY_DSN` is set | P1 |
 | Quality | Ruff (lint + format), mypy `--strict` | P0 |
 | Tests | pytest, pytest-asyncio, httpx `AsyncClient`, respx | P0 |
-| Background jobs | Taskiq + `taskiq-redis` (worker and scheduler) | P4 |
-| Vectors / embeddings | pgvector, FastEmbed | P4 |
-| LLM | provider interface; Gemini default; OpenAI-compatible swappable; fake for tests | P5 |
+| Background jobs | Taskiq 0.12 + `taskiq-redis` (Redis Streams, at-least-once; worker and scheduler). Pinned `<0.13`: taskiq 0.13.0 (2026-09-26) breaks taskiq-redis 1.2.3 | P4 |
+| Vectors / embeddings | pgvector (`pgvector` SQLAlchemy type, no asyncpg codec needed), FastEmbed with the model baked into the image | P4 |
+| LLM | provider interface (`complete`, `stream`, `generate_structured`); Gemini over plain httpx (`streamGenerateContent?alt=sse` for streaming); scripted fake for tests and key-less runs. OpenAI-compatible provider: still open | P5 |
 
 ### Infrastructure
 
@@ -175,7 +176,7 @@ devflow/
 │   │   ├── pages/            One component per route; composition only
 │   │   ├── features/<name>/  api/ (RTK Query endpoints) · store/ (slice) · hooks/ · lib/ · types.ts · index.ts
 │   │   ├── components/       ui/ (Modal, ConfirmDialog, loaders, ApiConnectionCard) · layout/ (AppLayout)
-│   │   ├── lib/              api/ (base query, errors, SSE, generated schema) · utils/cn.ts
+│   │   ├── lib/              api/ (base query, auth session slice, refresh, errors, generated schema; SSE in P5) · toasts · utils/cn.ts
 │   │   ├── hooks/ styles/ types/ test/
 │   ├── vite.config.ts  vercel.json  package.json
 ├── backend/                  FastAPI service, Taskiq worker and scheduler (one image)
@@ -256,9 +257,10 @@ API Tester, Settings.
 
 | Slice | State | Phase |
 |---|---|---|
-| `auth` | `{ user, accessToken, status: 'checking' \| 'authenticated' \| 'anonymous' }` | P2 |
-| `notes` | `{ activeNoteId }` — UI state only | P3 |
-| `timer` | `{ mode, remainingSeconds, running }` — the countdown itself runs in the browser | P3 |
+| `auth` | `{ user, accessToken, status: 'checking' \| 'authenticated' \| 'anonymous', notice }` — lives in `lib/api/authSession.ts`, next to the base query that reads it (a feature-owned slice would create an import cycle) | P2 |
+| `toasts` | app-wide notifications (`lib/toasts.ts`), e.g. the 429 message | P2 |
+| `notesUi` | `{ activeNoteId }` — UI state only | P3 |
+| `timer` | `{ mode, status, endsAt, remainingMs }` — a deadline, not a ticking counter: background tabs throttle timers, so counting down drifts while "ends at 14:25:00" can't | P3 |
 | `api` | RTK Query cache for every server collection (snippets, notes, sessions, …) | P2+ |
 
 Server data is **never** copied into a hand-written slice. RTK Query owns it: cache tags
@@ -275,18 +277,26 @@ In `lib/api/`:
   default, and the refresh cookie's `Path=/api/v1/auth` keeps it off every other request.
 - The base query reads the access token from Redux **per request** and sets
   `Authorization: Bearer <access_token>`.
-- **On 401:** call `/auth/refresh` once and retry. If the refresh fails, clear the session.
-  Concurrent 401s share **one** refresh promise so they cannot race — and because refresh
-  tokens rotate, a second parallel refresh would present an already-used token and revoke
-  the whole session.
+- **On 401:** call `/auth/refresh` once and retry. If the refresh is rejected, clear the
+  session with a "your session has ended" notice; if the server is unreachable, keep the
+  session and surface the error instead of signing the user out. `/auth/*` routes are
+  exempt — a 401 from login means a wrong password.
+- **One refresh at a time** (`lib/api/refresh.ts`): concurrent 401s share one in-flight
+  promise, and a Web Lock (`navigator.locks`) makes other tabs wait their turn. Refresh
+  tokens rotate, so a second parallel refresh would present an already-used token. If a
+  refresh still loses a race, the server answers `REFRESH_TOKEN_ROTATED` and the client
+  retries once with the newer cookie.
 - `toApiError()` maps every failure — backend error bodies, dropped connections
   (`FETCH_ERROR` → `NETWORK_ERROR`), a proxy's HTML page — to a typed `ApiError`
   `{ status, code, message, details, requestId }`.
-- On 429: a toast with the retry time from `Retry-After`.
-- `openapi-typescript` types in `lib/api/schema.ts` via `npm run gen:api`.
-- P5: `lib/api/sse.ts` — streaming with `fetch` + `ReadableStream` + `TextDecoder`
-  (`EventSource` cannot send an `Authorization` header), parsing `event:`/`data:` lines,
-  with `AbortController` cancellation.
+- On 429: a toast with the retry time (`details.retry_after`).
+- `openapi-typescript` types in `lib/api/schema.ts` via `npm run gen:api` (exports the
+  backend schema to `frontend/openapi.json`, then generates the types).
+- P5 ✅: `lib/api/sse.ts` — `postSse` streams with `fetch` + `ReadableStream` (`EventSource`
+  can't POST or send an `Authorization` header), same token/refresh rules as the base
+  query; `SseParser` buffers across chunk boundaries (including split UTF-8 characters,
+  `TextDecoder` with `stream: true`). `useStream` exposes status/text/sources, `stop()`
+  aborts the fetch, and every finished request invalidates the `AiUsage` tag.
 
 ### 7.6 Pages
 
@@ -299,24 +309,33 @@ forgot-password flow (ADR 0001): there is no email sending.
 Snippets, Notes, Timer, API Tester), each with an icon, description and, where relevant, a
 count from `GET /dashboard/summary`.
 
-**SnippetsPage** (P3) — Header with *Add Snippet*. Search (300 ms debounce) and tag chips
-from `GET /snippets/tags`. Two-column animated card grid: title, language, code block,
+**SnippetsPage** (P3–P4) — Header with *Add Snippet*. Tag chips from
+`GET /snippets/tags` and a favourites filter. Two-column animated card grid: title, language, code block,
 tags; hover reveals copy (with a 2-second ✓), edit, delete, favourite. Create / edit modal
 with title, description, language, comma-separated tags and code. Delete asks via
 `ConfirmDialog`. Cursor pagination with *Load more*. Empty state with an icon.
-P4: hybrid search bar with mode, filters and a match-type badge.
-P5: *Explain* panel (streaming markdown, level selector, Stop button) and AI tag
-suggestions as accept/dismiss chips.
+P4 ✅: typing (300 ms debounce) switches the grid to ranked results from
+`/snippets/search` with a Hybrid / Keyword / Semantic selector and a badge per result
+(*Keyword*, *Semantic*, *Keyword + meaning*). Snippets the worker hasn't embedded yet show
+"Indexing…", and the list polls every 3 s only while any are pending.
+P5 ✅: an *Explain* button per card opens a panel (level selector, streaming markdown, Stop);
+editing a snippet offers *Suggest tags with AI* — chips the user adds one by one.
 
 **NotesPage** (P3) — Two panes. Left: search and a list sorted by last update, each with a
-date and a hover delete. Right: title input and a Write/Preview toggle; preview renders
-GitHub-flavoured markdown. Title and content auto-save 1 s after typing stops, with a
-Saving…/Saved indicator. Empty state when nothing is selected.
-P5: *Ask your notes* panel with streaming answers and clickable `[n]` citations.
+relative date and a delete button. Right: title input and a Write/Preview toggle; preview
+renders GitHub-flavoured markdown. `useAutosave` saves 1 s after typing stops, **one request
+at a time** (an older save can never land after a newer one), flushes on switching notes,
+and shows Unsaved/Saving…/Saved/Couldn't save (with Retry, never a retry loop). A save
+patches the note into the cached lists instead of refetching them.
+P5 ✅: an *Ask* toggle shows the *Ask your notes* panel: streamed answer, `[n]` citations
+as buttons that open the cited note (only numbers matching a real source become links),
+and the numbered source list.
 
-**TimerPage** (P3) — Focus (25:00) and break (5:00) modes, start/pause and reset. When a
-focus period ends it posts a completed session and switches to break; when a break ends it
-returns to focus. Shows today's and all-time completed sessions.
+**TimerPage** (P3) — Focus (25:00) and break (5:00) modes, start/pause/resume and reset;
+today's and all-time sessions from `/dashboard/summary`. Completion is handled by
+`TimerEngine`, mounted once in the layout rather than on this page, so a session still
+completes, is recorded (`POST /pomodoro/sessions`) and announced while you use other pages.
+The tab title shows the countdown while it runs.
 P6: daily focus-minutes chart, current and best streak.
 
 **GithubPage** (P6) — Username search (500 ms debounce) through the backend. Shows avatar,
@@ -334,8 +353,9 @@ meter and rules); **API connection** card (`ApiConnectionCard`) that calls `/api
 and shows *Connected* with the user id and email, or the error code, message and request
 id, with a *Re-check* button. P6: GitHub username field.
 
-**Everywhere** (P5): an AI usage indicator ("12/50 AI requests left today"), and loading,
-empty, error and rate-limited states on every async view.
+**Everywhere** (P5 ✅): an AI usage indicator in the sidebar ("12/50 AI requests left
+today"), exported through a separate light entry (`features/ai/shell.ts`) so the markdown
+renderer stays out of the main bundle (351 kB instead of 514 kB).
 
 ### 7.7 Design system (P2)
 
@@ -349,11 +369,12 @@ Dark only. Tailwind 4 theme tokens (`@theme` in `styles/index.css`):
 | `text` | `#e5e7eb` | body text |
 | `accent` | `#3b82f6` | primary actions, focus rings |
 
-Fonts: **Inter** (UI) and **JetBrains Mono** (code). Component classes: `.card`,
-`.btn-primary`, `.btn-secondary`, `.input-field`. Shared components: `Modal` (Escape
-closes, body scroll lock, `aria-modal`, labelled title), `ConfirmDialog` (async confirm
-with its own loading and error state), `PageLoader` / `FullPageLoader` (`role="status"`),
-`AppLayout`. Merge classes with `cn()`.
+Fonts: **Inter** (UI) and **JetBrains Mono** (code). Component classes, declared with
+Tailwind 4's `@utility` so they compose: `card`, `btn`, `btn-primary`, `btn-secondary`,
+`btn-ghost`, `label`, `input-field`. Shared components: `AppLayout`, `Alert`, `Toaster`,
+`PageLoader` / `FullPageLoader` (`role="status"`), `ApiConnectionCard`; from P3, `Modal`
+(Escape closes, focus trapped, labelled title) and `ConfirmDialog` (async confirm with its
+own loading and error state). Merge classes with `cn()`.
 
 **Accessibility is a requirement, not polish:** semantic HTML, keyboard reachability,
 visible focus, labelled controls, `aria-live` on loading states. Keep it intact in every
@@ -499,11 +520,12 @@ which would include a rejected password. Stack traces never reach the client.
   one MULTI/EXEC, so a counter can never lose its expiry). Login 10/min per IP and 5/min
   per email (hashed in the key), register 5/hour per IP, password change 5 per 15 min
   per user.
-- P5: upgraded to a sliding window used as a dependency, keyed by user id (IP for
-  unauthenticated routes). Defaults: **120/min** general, **10/min** AI routes, **30/min**
-  API-tester proxy.
-- P5: daily AI quota per user (`AI_DAILY_QUOTA_PER_USER`, default 50), counted in
-  `ai_usage`.
+- P5 ✅: a sliding-window limiter (Redis sorted set + atomic Lua script) as router
+  dependencies: **120/min** on every signed-in route, **10/min** on AI routes; **30/min**
+  for the API-tester proxy in P6. Auth keeps its fixed window.
+- P5 ✅: daily AI quota per user (`AI_DAILY_QUOTA_PER_USER`, default 50) = today's (UTC)
+  `ai_usage` rows that reached the model; refusals are recorded as `quota_exceeded` but
+  don't count. `GET /me/ai-usage` feeds the indicator.
 - 429 with `Retry-After` and the standard error body. Check limits and quota **before** a
   stream starts.
 
@@ -521,8 +543,9 @@ class LLMProvider(Protocol):
                      temperature: float = 0.3) -> AsyncIterator[StreamChunk]: ...
 ```
 
-Implementations: Gemini (default, plain httpx against the REST API), an OpenAI-compatible
-provider (for Ollama/vLLM later), and `FakeLLMProvider`. `LLMResult` carries the parsed
+Implementations: Gemini (default, plain httpx against the REST API) and `FakeLLMProvider`;
+an OpenAI-compatible provider (Ollama/vLLM) fits the same ABC when needed. The key is checked
+when the API starts — not in `Settings`, which migrations and scripts also load. `LLMResult` carries the parsed
 object plus tokens, latency and cost. Timeouts and retries with backoff on transient
 upstream errors (5xx, 429 with a short `Retry-After`). Prompts are **versioned templates**
 (`prompts/explain_code_v1`, …) and the version is logged with every call.
@@ -585,17 +608,17 @@ and use the error format in 8.4. Lists use cursor pagination:
 | GET | `/me` | `{ id, email, github_username, created_at }` | P1 |
 | POST | `/me/password` | `{ current_password, new_password }` → a fresh session; revokes every other one; 422 `INVALID_CURRENT_PASSWORD` | P1 |
 | PATCH | `/me` | set `github_username` | P6 |
-| GET | `/dashboard/summary` | counts of snippets, notes, focus sessions | P3 |
+| GET | `/dashboard/summary?tz=` | counts of snippets, notes, focus sessions, and sessions since midnight in `tz` (IANA name; 422 `INVALID_TIMEZONE`) | P3 |
 
 ### Snippets
 
 | Method | Path | Notes | Phase |
 |---|---|---|---|
-| GET | `/snippets` | filters `q`, `language`, `tag`, `favorite`; paginated | P3 |
+| GET | `/snippets` | filters `language`, `tag`, `favorite`; paginated; items carry `embedding_status` (P4) | P3 |
 | GET | `/snippets/tags` | distinct tags with counts, for the filter chips | P3 |
 | POST | `/snippets` | create (P4: then enqueue `embed_snippet`) | P3 |
 | GET / PATCH / DELETE | `/snippets/{id}` | P4: PATCH re-embeds only if the content hash changed | P3 |
-| GET | `/snippets/search?q=&mode=hybrid&language=&tag=&limit=10` | `mode` = `keyword` \| `semantic` \| `hybrid`; items carry `score` and `match_type` | P4 |
+| GET | `/snippets/search?q=&mode=hybrid&language=&tag=&favorite=&limit=10` | `mode` = `keyword` \| `semantic` \| `hybrid`; items carry `score` and `match_type` | P4 |
 | POST | `/snippets/{id}/ai/tags` | suggested `language`, `tags[]`, `description`; never overwrites user tags | P5 |
 | POST | `/snippets/{id}/ai/explain` | **SSE**; body `{ level: beginner \| intermediate \| expert }` | P5 |
 
@@ -650,8 +673,12 @@ If the client disconnects, stop streaming and cancel the upstream LLM request.
 ## 10. Data model
 
 All tables live in the `public` schema and are created by Alembic. Every user-owned table
-has `user_id uuid not null references users on delete cascade` and an index on `user_id`.
-`updated_at` is maintained by the application on every update.
+has `user_id uuid not null references users on delete cascade` and a composite index led
+by `user_id` that also matches the list's sort order — `(user_id, created_at, id)` for
+snippets, `(user_id, updated_at, id)` for notes, `(user_id, completed_at, id)` for
+sessions — so one index serves both the ownership filter and keyset pagination.
+`updated_at` is maintained by the application (`onupdate`), and models use
+`eager_defaults` so server-generated timestamps come back via `RETURNING`.
 
 | Table | Columns | Phase |
 |---|---|---|
@@ -661,21 +688,24 @@ has `user_id uuid not null references users on delete cascade` and an index on `
 | `notes` | `id uuid pk`, `user_id`, `title text`, `content text`, `created_at`, `updated_at` | P3 |
 | `pomodoro_sessions` | `id uuid pk`, `user_id`, `completed_at timestamptz`, `duration_seconds int check (> 0)`, `created_at`; index `(user_id, completed_at)` | P3 |
 
-**Snippets search columns (P4)** — `content_hash text`; `embedding vector(384)`;
+**Snippets search columns (P4 ✅)** — `content_hash text`; `embedding vector(384)`;
 `embedding_status text not null default 'pending'` in (`pending`, `ready`, `failed`);
-`embedded_at timestamptz`; `ai_tags text[]`, `ai_description text`, `ai_language text`;
-`search_tsv tsvector` **generated always … stored**, weighted title (A), description (B),
-tags (B), code (C, `simple` config). Indexes: HNSW on `embedding` (`vector_cosine_ops`),
-GIN on `search_tsv`.
+`embedded_at timestamptz`; `search_tsv tsvector` **generated always … stored**, weighted
+title (A), description (B), tags (B), code (C, `simple` config). Two IMMUTABLE helpers:
+`snippet_tags_text(text[])` (generated columns can't call the merely STABLE
+`array_to_string`) and `search_words(text)`, which appends a camelCase-split copy so
+"debounce" finds `useDebounce`. Indexes: HNSW on `embedding` (`vector_cosine_ops`), GIN on
+`search_tsv`. `embedding` and `search_tsv` are deferred with raiseload, so lists never
+load 384 floats per row. The `ai_*` columns arrive with auto-tagging in P5.
 
-**`note_chunks` (P5)** — `id`, `note_id → notes on delete cascade`, `user_id`,
+**`note_chunks` (P5 ✅)** — `id`, `note_id → notes on delete cascade`, `user_id`,
 `chunk_index`, `heading`, `content`, `content_hash`, `token_count`, `embedding vector(384)`,
 generated `search_tsv`, `created_at`, `unique(note_id, chunk_index)`; HNSW, GIN and
 `user_id` indexes.
 
-**`ai_usage` (P5)** — `id`, `user_id`, `feature` (`explain_code` | `auto_tag` |
+**`ai_usage` (P5 ✅)** — `id`, `user_id`, `feature` (`explain_code` | `auto_tag` |
 `ask_notes` | `explain_http_error` | `github_insights`), `provider`, `model`,
-`input_tokens`, `output_tokens`, `cost_usd numeric(10,6)`, `latency_ms`, `status`
+`prompt_version`, `input_tokens`, `output_tokens`, `cost_usd numeric(10,6)`, `latency_ms`, `status`
 (`success` | `error` | `quota_exceeded`), `error_code`, `created_at`; index
 `(user_id, created_at)`.
 
@@ -692,8 +722,13 @@ generated `search_tsv`, `created_at`, `unique(note_id, chunk_index)`; HNSW, GIN 
   to the model's 512-token limit.
 - **Idempotency:** hash the embedding text; if the hash is unchanged and status is
   `ready`, skip. This is what makes a 1-second notes autosave harmless.
-- Always in the worker, never inside the request. `backfill_embeddings` covers rows that
-  were created before the pipeline existed or whose embedding failed.
+- Always in the worker, never inside the request; enqueued **after** the commit. An
+  update re-embeds only when the embedding text's hash changed (starring is free).
+- **Stale writes:** the worker writes with `WHERE updated_at = <version it read>`, so an
+  edit made while it was embedding is never overwritten by a vector for the old text.
+- **Failures:** 3 attempts with backoff, then `failed`. A scheduled sweep every 10 min
+  embeds rows left `pending` for 5+ minutes (lost jobs), and
+  `scripts/backfill_embeddings.py [--include-failed]` embeds everything not ready.
 
 ### 11.2 Hybrid search (P4)
 
@@ -706,12 +741,21 @@ One SQL query with CTEs, always scoped to `user_id` and the filters:
 3. **Fusion:** `score = Σ 1 / (60 + rank)` across branches; return the top `limit`.
 
 `match_type` is `keyword`, `semantic` or `both`. `mode=keyword|semantic` return one branch,
-which the evaluation needs. Comment in the code why RRF beats adding raw scores.
+which the evaluation needs. The keyword branch ORs an `english` and a `simple` parse of the
+query, matching how prose and code were indexed. The semantic branch only counts neighbours
+within cosine distance 0.4 (similarity ≥ 0.6) — nearest neighbours always exist, and
+without a cut-off every query would "match" everything. Known weakness to tune in P7:
+one-word queries embed poorly, so they can pull in a weak semantic neighbour.
 
-### 11.3 Explain this code (P5)
+### 11.3 Explain this code (P5 ✅)
 
-Redact → versioned prompt → stream tokens as SSE. Quota and rate limit checked first;
-`ai_usage` recorded on completion and on error; upstream cancelled on disconnect.
+Redact → versioned prompt → stream tokens as SSE. Rate limit, ownership (404) and quota are
+all checked before the stream starts, so refusals are plain HTTP errors. The provider stream
+is wrapped in `aclosing()`: on disconnect, closing it closes the HTTP connection to the
+model (stopping generation and billing). One `ai_usage` row per call, written in a
+`finally` shielded from cancellation; a disconnect is recorded as `CLIENT_DISCONNECTED`
+whether it arrives as `CancelledError` (awaiting the model) or `GeneratorExit` (paused at a
+`yield`) — the tests caught the second case.
 
 ### 11.4 Auto-tagging (P5)
 
@@ -722,15 +766,20 @@ class SnippetTagSuggestion(BaseModel):
     description: str     # one sentence, max 140 chars
 ```
 
-Validate with Pydantic; on failure retry **once** with the validation error in the prompt,
-then return a clean error. Normalise (lowercase, dedupe, max 5). The user accepts
-suggestions explicitly; user tags are never overwritten.
+Validate with Pydantic; on failure retry **once** with the model's own reply and the
+validation error in the prompt, then return 502 `AI_INVALID_OUTPUT`. Normalise (lowercase,
+dedupe, max 5). Nothing is stored: suggestions are returned, and the user adds the ones they
+want (so no `ai_*` columns are needed).
 
 ### 11.5 Ask your notes (P5)
 
-- **Chunking:** split by markdown heading, then ~300-token windows with ~50 overlap;
-  keep the nearest heading for citations.
+- **Chunking:** split by markdown heading (ignoring `#` lines inside code fences), then
+  ~300-token windows with ~50 overlap; keep the nearest heading for citations. The embedded
+  text is note title + heading + passage.
 - **Re-embedding:** compare chunk hashes; embed new or changed chunks only, delete removed.
+  `notes.indexed_at` records the note version the chunks reflect; the sweep and the
+  backfill re-index notes where it lags `updated_at`. Stale writes are dropped (the note row
+  is locked and its version re-checked before writing).
 - **Retrieval:** hybrid search over `note_chunks`, top 6.
 - **Guardrail:** if the best semantic similarity is under a configurable threshold, answer
   "I couldn't find this in your notes" **without calling the LLM**.
@@ -822,12 +871,19 @@ current access token but not their refresh sessions.
   error shape and request ids; `/health`, `/ready` and `/ready` returning 503.
 - P2: base query token attachment, refresh-and-retry, one shared refresh under concurrent
   401s, sign-out on failed refresh, no refresh on non-401 errors; `toApiError` mapping.
-- P3: CRUD for snippets, notes, sessions; **IDOR — cross-user access to every resource
-  type returns 404**; pagination cursors.
-- P4: search ranking with deterministic fake embeddings (keyword-only, semantic-only,
-  both); embedding idempotency.
-- P5: rate limiter and quota → 429 with `Retry-After`; every redaction pattern; SSE event
-  format and the error event; the SSE parser with chunks split mid-line.
+- P3 ✅: CRUD for snippets, notes, sessions; **IDOR — cross-user access to every resource
+  type returns the same 404 as a missing row, and leaves the row untouched**
+  (mutation-checked); a pagination walk that sees every row exactly once; literal `%`/`_`
+  in search; "today" across timezones; autosave debounce, serialisation and flush.
+- P4 ✅: search ranking with deterministic fake embeddings (keyword-only, semantic-only,
+  both, exact RRF scores), stemming vs exact code tokens, camelCase, per-user search,
+  hostile query syntax, the query cache; embedding idempotency, stale-write protection,
+  retries → failed, the sweep; opt-in tests against the real model.
+- P5 ✅: Gemini client against mocked HTTP (headers, retries, streaming, blocked prompts);
+  every redaction pattern (and a mutation check that the prompt is redacted); quota and
+  both limits → 429; SSE framing, mid-stream errors, both disconnect paths; repair retry;
+  the no-LLM guardrail; per-user retrieval; chunking; changed-passage re-embedding; the
+  SSE parser across split lines and split UTF-8 characters.
 - P6: SSRF cases (private IPs, localhost, metadata IP, IPv6 loopback, redirect to a
   private IP, non-http scheme); cURL parser cases; pomodoro streak edge cases.
 - **≥ 80% coverage** on `services/` and `repositories/` from P3.
@@ -903,7 +959,7 @@ it is secret.
 | **1 Backend + auth** | A script can register, log in, refresh, call `/me`, change the password and log out; the auth test suite passes; CI green |
 | **2 Frontend shell** | In the browser: create an account, reload and stay signed in, see *Connected* on Settings, change the password, sign out |
 | **3 CRUD** | Snippets, notes, timer and dashboard work end to end through the API; IDOR tests pass; ≥ 80% coverage on services and repositories |
-| **4 Search** | An intent-style query finds a snippet keyword search misses; existing snippets are backfilled |
+| **4 Search** ✅ | An intent-style query finds a snippet keyword search misses; existing snippets are backfilled |
 | **5 AI** | Explain, auto-tag and Ask your notes work in the UI; `ai_usage` rows record cost; quota and limits return 429 |
 | **6 Proxy, stats, GitHub** | The tester reaches APIs that fail on browser CORS; SSRF tests pass; insights generate and display |
 | **7 Eval & deploy** | Evaluation table exists; production frontend, API, worker and scheduler run; README matches what shipped |

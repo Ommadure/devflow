@@ -3,6 +3,7 @@
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 import jwt
 from argon2 import PasswordHasher as Argon2Hasher
@@ -14,6 +15,20 @@ from app.core.tokens import JWT_AUDIENCE, JWT_ISSUER
 TEST_JWT_SECRET = "test-secret-" + "x" * 40
 ORIGIN = "http://localhost:5173"
 STRONG_PASSWORD = "Correct-Horse-9"
+
+
+class RecordingDispatcher:
+    """Stands in for Taskiq: remembers which jobs would have been queued."""
+
+    def __init__(self) -> None:
+        self.embeds: list[UUID] = []
+        self.notes: list[UUID] = []
+
+    async def embed_snippet(self, snippet_id: UUID) -> None:
+        self.embeds.append(snippet_id)
+
+    async def embed_note(self, note_id: UUID) -> None:
+        self.notes.append(note_id)
 
 
 class InMemoryRateLimiter:

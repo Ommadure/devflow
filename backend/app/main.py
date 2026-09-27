@@ -16,6 +16,8 @@ from app.core.middleware import RequestContextMiddleware
 from app.core.observability import init_sentry
 from app.core.redis import get_redis
 from app.db.session import get_engine
+from app.services.ai.embeddings import check_embedding_config
+from app.services.ai.llm.factory import check_llm_config, llm_http_client
 
 log = structlog.get_logger()
 
@@ -23,8 +25,15 @@ log = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+    check_embedding_config(settings)  # a wrong EMBEDDING_DIM fails here, not on first save
+    check_llm_config(settings)
+    from app.workers.broker import broker  # the API only enqueues; the worker consumes
+
+    await broker.startup()
     log.info("api.startup", app_env=settings.app_env, cors_origins=settings.cors_origin_list)
     yield
+    await broker.shutdown()
+    await llm_http_client().aclose()
     # Close pooled connections cleanly so shutdown doesn't leave sockets open.
     await get_engine().dispose()
     await get_redis().aclose()

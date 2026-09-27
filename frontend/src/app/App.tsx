@@ -1,13 +1,32 @@
-// Phase 0 placeholder. Phase 2 replaces it with the auth gate, layout and routes.
+import { AppLayout } from "@/components/layout/AppLayout";
+import { FullPageLoader } from "@/components/ui/Loaders";
+import { Toaster } from "@/components/ui/Toaster";
+import { useSessionBootstrap } from "@/features/auth";
+import { selectAuthStatus } from "@/lib/api/authSession";
+import { AuthPage } from "@/pages/AuthPage";
+import { useAppSelector } from "./hooks";
+import { AppRoutes } from "./routes";
+
+/**
+ * The auth gate. Signed out, only the sign-in page exists — no route is mounted, so no
+ * page can fire a request without a session. Signed in, the layout wraps the routes.
+ */
 export function App() {
+  useSessionBootstrap();
+  const status = useAppSelector(selectAuthStatus);
+
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <div className="rounded-xl border border-border bg-surface p-8 text-center">
-        <h1 className="text-2xl font-semibold">DevFlow</h1>
-        <p className="mt-2 text-sm text-text/70">
-          Rebuild in progress — the dashboard arrives in Phase 2.
-        </p>
-      </div>
-    </main>
+    <>
+      {status === "checking" ? (
+        <FullPageLoader label="Loading DevFlow…" />
+      ) : status === "anonymous" ? (
+        <AuthPage />
+      ) : (
+        <AppLayout>
+          <AppRoutes />
+        </AppLayout>
+      )}
+      <Toaster />
+    </>
   );
 }

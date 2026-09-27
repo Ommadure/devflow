@@ -30,3 +30,4 @@ coverage/
 
 # Scratch evaluation runs (committed results live in evals/search/results/)
 evals/**/tmp/
+.cache/

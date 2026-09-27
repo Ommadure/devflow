@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     # Comma-separated. Used by CORS and by the Origin check on cookie-authenticated routes.
     cors_origins: str = "http://localhost:5173"
 
+    # Embeddings (ADR 0004). "fake" gives deterministic vectors with no model download
+    # (tests, CI); the dimension is checked against the model at startup.
+    embedding_provider: Literal["fastembed", "fake"] = "fastembed"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_dim: int = 384
+    # Where FastEmbed keeps the model. The Docker image downloads it here at build time.
+    fastembed_cache_path: str = ".cache/fastembed"
+    # Search embeds the query on every request; the same query within this window reuses it.
+    query_embedding_cache_seconds: int = Field(default=3600, ge=0)
+
     sentry_dsn: str = ""  # empty: Sentry off
     sentry_traces_sample_rate: float = Field(default=0.0, ge=0, le=1)
 

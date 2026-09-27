@@ -12,6 +12,8 @@ TEST_REDIS_URL = os.environ.setdefault("TEST_REDIS_URL", "redis://localhost:6380
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.pop("DATABASE_DIRECT_URL", None)
 os.environ["REDIS_URL"] = TEST_REDIS_URL
+# Deterministic vectors; tests never download or run the real model.
+os.environ["EMBEDDING_PROVIDER"] = "fake"
 
 import asyncio
 from collections.abc import AsyncIterator, Iterator
@@ -21,6 +23,7 @@ import httpx
 import pytest
 from alembic.config import Config
 from fastapi import FastAPI
+from redis.asyncio import Redis
 from sqlalchemy import make_url, text
 from sqlalchemy.engine import URL
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -30,19 +33,34 @@ from alembic import command
 from app.api.deps import get_rate_limiter
 from app.core.config import Settings, get_settings
 from app.core.passwords import get_password_hasher
+from app.core.redis import get_redis
 from app.db.base import Base
-from app.db.session import get_session
+from app.db.session import get_engine, get_session, get_sessionmaker
 from app.main import create_app
-from tests.helpers import ORIGIN, TEST_JWT_SECRET, InMemoryRateLimiter, fast_hasher
+from app.services.ai.embeddings import FakeEmbeddingProvider, get_embedding_provider
+from app.workers.dispatch import get_dispatcher
+from tests.helpers import (
+    ORIGIN,
+    TEST_JWT_SECRET,
+    InMemoryRateLimiter,
+    RecordingDispatcher,
+    fast_hasher,
+)
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(autouse=True)
-def _fresh_settings() -> Iterator[None]:
-    get_settings.cache_clear()
+def _fresh_singletons() -> Iterator[None]:
+    """Settings, the Redis client and the DB engine are cached once per process in the app.
+    Each test runs in its own event loop, and asyncio connections can't cross loops, so
+    every test starts with fresh ones."""
+    caches = (get_settings, get_redis, get_engine, get_sessionmaker)
+    for cached in caches:
+        cached.cache_clear()
     yield
-    get_settings.cache_clear()
+    for cached in caches:
+        cached.cache_clear()
 
 
 @pytest.fixture
@@ -54,6 +72,7 @@ def settings() -> Settings:
         redis_url=TEST_REDIS_URL,
         jwt_secret=TEST_JWT_SECRET,  # type: ignore[arg-type]
         cors_origins=ORIGIN,
+        embedding_provider="fake",
     )
 
 
@@ -63,11 +82,29 @@ def limiter() -> InMemoryRateLimiter:
 
 
 @pytest.fixture
-def app(settings: Settings, limiter: InMemoryRateLimiter) -> FastAPI:
+def dispatcher() -> RecordingDispatcher:
+    return RecordingDispatcher()
+
+
+@pytest.fixture
+def embeddings() -> FakeEmbeddingProvider:
+    return FakeEmbeddingProvider()
+
+
+@pytest.fixture
+def app(
+    settings: Settings,
+    limiter: InMemoryRateLimiter,
+    dispatcher: RecordingDispatcher,
+    embeddings: FakeEmbeddingProvider,
+) -> FastAPI:
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_rate_limiter] = lambda: limiter
     app.dependency_overrides[get_password_hasher] = fast_hasher
+    # Jobs are recorded, not queued: no test needs a running worker.
+    app.dependency_overrides[get_dispatcher] = lambda: dispatcher
+    app.dependency_overrides[get_embedding_provider] = lambda: embeddings
     return app
 
 
@@ -143,5 +180,9 @@ async def api(
             yield session
 
     app.dependency_overrides[get_session] = test_session
+    # Redis db 15 holds rate-limit counters and cached query vectors; start each test empty.
+    redis: Redis = Redis.from_url(TEST_REDIS_URL)
+    await redis.flushdb()
+    await redis.aclose()
     async with _client(app) as test_client:
         yield test_client

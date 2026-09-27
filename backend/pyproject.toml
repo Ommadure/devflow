@@ -9,12 +9,18 @@ dependencies = [
     "asyncpg>=0.30",
     "email-validator>=2.2",
     "fastapi>=0.115",
+    "fastembed>=0.5",
+    "pgvector>=0.3",
     "pydantic-settings>=2.6",
     "pyjwt>=2.10",
     "redis>=5.2",
     "sentry-sdk>=2.0",
     "sqlalchemy[asyncio]>=2.0.36",
     "structlog>=24.4",
+    # <0.13: taskiq 0.13.0 (2026-09-26) removed taskiq.compat.model_dump, which
+    # taskiq-redis 1.2.3 still imports. Lift once taskiq-redis supports 0.13.
+    "taskiq>=0.12.1,<0.13",
+    "taskiq-redis>=1.0",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -41,6 +47,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"] # asserts and fake secrets are normal in tests
+"scripts/seed_demo.py" = ["E501"] # demo data: each code sample stays on one line
 
 [tool.mypy]
 python_version = "3.12"

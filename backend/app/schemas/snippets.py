@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from pydantic import (
@@ -57,8 +57,20 @@ class SnippetOut(BaseModel):
     language: str | None
     tags: list[str]
     favorite: bool
+    # pending until the worker has embedded it; only "ready" snippets show up in
+    # semantic search (keyword search works immediately).
+    embedding_status: Literal["pending", "ready", "failed"]
     created_at: datetime
     updated_at: datetime
+
+
+class SearchHit(SnippetOut):
+    score: float = Field(description="Reciprocal Rank Fusion score; higher is better")
+    match_type: Literal["keyword", "semantic", "both"]
+
+
+class SearchResults(BaseModel):
+    items: list[SearchHit]
 
 
 class TagCount(BaseModel):

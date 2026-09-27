@@ -10,6 +10,8 @@ from app.core.pagination import Page, PageParams, paginate
 from app.models import Snippet
 from app.repositories import snippets
 from app.schemas.snippets import SnippetCreate, SnippetOut, SnippetUpdate, TagCount
+from app.services.ai.embedding_text import content_hash, embedding_text
+from app.workers.dispatch import JobDispatcher
 
 
 def _not_found() -> NotFoundError:
@@ -17,15 +19,22 @@ def _not_found() -> NotFoundError:
 
 
 class SnippetService:
-    def __init__(self, session: AsyncSession, user_id: UUID) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        user_id: UUID,
+        dispatcher: JobDispatcher,
+        embedding_model: str,
+    ) -> None:
         self._session = session
         self._user_id = user_id
+        self._dispatcher = dispatcher
+        self._embedding_model = embedding_model
 
     async def page(
         self,
         params: PageParams,
         *,
-        q: str | None = None,
         language: str | None = None,
         tag: str | None = None,
         favorite: bool | None = None,
@@ -34,7 +43,6 @@ class SnippetService:
             self._session,
             self._user_id,
             params,
-            q=q,
             language=language.lower() if language else None,
             tag=tag.lower() if tag else None,
             favorite=favorite,
@@ -51,13 +59,24 @@ class SnippetService:
     async def create(self, data: SnippetCreate) -> Snippet:
         snippet = await snippets.add(self._session, self._user_id, **data.model_dump())
         await self._session.commit()
+        # After the commit, never before: a worker fast enough to start before the
+        # transaction commits wouldn't see the row yet.
+        await self._dispatcher.embed_snippet(snippet.id)
         return snippet
 
     async def update(self, snippet_id: UUID, changes: SnippetUpdate) -> Snippet:
         snippet = await self.get(snippet_id)
         for field, value in changes.model_dump(exclude_unset=True).items():
             setattr(snippet, field, value)
+        # Re-embed only when the embedded text changed: starring a snippet costs nothing.
+        needs_embedding = (
+            content_hash(embedding_text(snippet), self._embedding_model) != snippet.content_hash
+        )
+        if needs_embedding:
+            snippet.embedding_status = "pending"
         await self._session.commit()
+        if needs_embedding:
+            await self._dispatcher.embed_snippet(snippet.id)
         return snippet
 
     async def delete(self, snippet_id: UUID) -> None:

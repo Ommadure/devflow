@@ -25,3 +25,6 @@ class Note(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # The `updated_at` its chunks were built from. Behind `updated_at` (or null) = the
+    # passages are out of date and the worker (or the sweep) must re-chunk the note.
+    indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

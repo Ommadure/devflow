@@ -17,15 +17,15 @@ from dataclasses import dataclass
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, func, literal, literal_column, select, union_all
+from sqlalchemy import ColumnElement, Select, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Snippet
+from app.repositories._rrf import RRF_K, fuse
 
 Mode = Literal["keyword", "semantic", "hybrid"]
 MatchType = Literal["keyword", "semantic", "both"]
 
-RRF_K = 60
 BRANCH_LIMIT = 50
 
 
@@ -110,27 +110,17 @@ async def hybrid_search(
     limit: int,
 ) -> list[Hit]:
     conditions = _owned(user_id, filters)
-    branches = []
-    if mode in ("keyword", "hybrid"):
-        keyword = _keyword_branch(q, conditions).cte("keyword")
-        branches.append(select(keyword.c.id, keyword.c.rank, literal("keyword").label("source")))
-    if mode in ("semantic", "hybrid") and vector is not None:
-        semantic = _semantic_branch(vector, max_distance, conditions).cte("semantic")
-        branches.append(select(semantic.c.id, semantic.c.rank, literal("semantic").label("source")))
-    if not branches:
-        return []
-
-    ranked = union_all(*branches).subquery("ranked")
-    fused = (
-        select(
-            ranked.c.id,
-            func.sum(1.0 / (RRF_K + ranked.c.rank)).label("score"),
-            func.bool_or(ranked.c.source == "keyword").label("by_keyword"),
-            func.bool_or(ranked.c.source == "semantic").label("by_semantic"),
-        )
-        .group_by(ranked.c.id)
-        .subquery("fused")
+    keyword = (
+        _keyword_branch(q, conditions).cte("keyword") if mode in ("keyword", "hybrid") else None
     )
+    semantic = (
+        _semantic_branch(vector, max_distance, conditions).cte("semantic")
+        if mode in ("semantic", "hybrid") and vector is not None
+        else None
+    )
+    fused = fuse(keyword, semantic)
+    if fused is None:
+        return []
     rows = await session.execute(
         select(Snippet, fused.c.score, fused.c.by_keyword, fused.c.by_semantic)
         .join(fused, Snippet.id == fused.c.id)

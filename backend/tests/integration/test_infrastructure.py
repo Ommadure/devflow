@@ -57,3 +57,14 @@ async def test_redis_rate_limiter_keys_are_independent(redis: Redis) -> None:
     rule = Rule(limit=1, window_seconds=60)
     assert (await limiter.hit("a", rule)).allowed
     assert (await limiter.hit("b", rule)).allowed
+
+
+async def test_sliding_window_counts_the_last_n_seconds(redis: Redis) -> None:
+    from app.core.rate_limit import SlidingWindowRateLimiter
+
+    limiter = SlidingWindowRateLimiter(redis, prefix="test-sliding")
+    rule = Rule(limit=3, window_seconds=60)
+    decisions = [await limiter.hit("user", rule) for _ in range(4)]
+    assert [d.allowed for d in decisions] == [True, True, True, False]
+    assert 55 <= decisions[-1].retry_after <= 60  # until the oldest hit leaves the window
+    assert await redis.zcard("test-sliding:user") == 3  # refused hits aren't recorded

@@ -14,6 +14,7 @@ os.environ.pop("DATABASE_DIRECT_URL", None)
 os.environ["REDIS_URL"] = TEST_REDIS_URL
 # Deterministic vectors; tests never download or run the real model.
 os.environ["EMBEDDING_PROVIDER"] = "fake"
+os.environ["LLM_PROVIDER"] = "fake"
 
 import asyncio
 from collections.abc import AsyncIterator, Iterator
@@ -30,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from alembic import command
-from app.api.deps import get_rate_limiter
+from app.api.deps import get_rate_limiter, get_sliding_limiter
 from app.core.config import Settings, get_settings
 from app.core.passwords import get_password_hasher
 from app.core.redis import get_redis
@@ -38,6 +39,8 @@ from app.db.base import Base
 from app.db.session import get_engine, get_session, get_sessionmaker
 from app.main import create_app
 from app.services.ai.embeddings import FakeEmbeddingProvider, get_embedding_provider
+from app.services.ai.llm.factory import get_llm_provider
+from app.services.ai.llm.fake import FakeLLMProvider
 from app.workers.dispatch import get_dispatcher
 from tests.helpers import (
     ORIGIN,
@@ -73,6 +76,8 @@ def settings() -> Settings:
         jwt_secret=TEST_JWT_SECRET,  # type: ignore[arg-type]
         cors_origins=ORIGIN,
         embedding_provider="fake",
+        llm_provider="fake",
+        ai_daily_quota_per_user=5,
     )
 
 
@@ -92,19 +97,28 @@ def embeddings() -> FakeEmbeddingProvider:
 
 
 @pytest.fixture
+def llm() -> FakeLLMProvider:
+    """No test ever calls a real (paid) model."""
+    return FakeLLMProvider()
+
+
+@pytest.fixture
 def app(
     settings: Settings,
     limiter: InMemoryRateLimiter,
     dispatcher: RecordingDispatcher,
     embeddings: FakeEmbeddingProvider,
+    llm: FakeLLMProvider,
 ) -> FastAPI:
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[get_rate_limiter] = lambda: limiter
+    app.dependency_overrides[get_sliding_limiter] = lambda: limiter
     app.dependency_overrides[get_password_hasher] = fast_hasher
     # Jobs are recorded, not queued: no test needs a running worker.
     app.dependency_overrides[get_dispatcher] = lambda: dispatcher
     app.dependency_overrides[get_embedding_provider] = lambda: embeddings
+    app.dependency_overrides[get_llm_provider] = lambda: llm
     return app
 
 
@@ -159,12 +173,15 @@ async def _ensure_database_exists(url: URL) -> None:
 
 @pytest.fixture
 async def sessionmaker(migrated_database: str) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    # NullPool: each test has its own event loop, and pooled asyncpg connections can't
-    # move between loops.
-    engine = create_async_engine(migrated_database, poolclass=NullPool)
-    tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
+    # One pooled engine per test: connections are reused across the test's requests
+    # (opening one costs ~50 ms of TCP + SCRAM auth), and the engine is disposed at the
+    # end — asyncpg connections can't move to the next test's event loop.
+    engine = create_async_engine(migrated_database, pool_size=5)
+    # DELETE, not TRUNCATE: the tables hold a handful of rows, and TRUNCATE recreates the
+    # files of every table and index (HNSW, GIN) each time — most of a test's setup.
     async with engine.begin() as conn:
-        await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
     yield async_sessionmaker(engine, expire_on_commit=False)
     await engine.dispose()
 
@@ -180,6 +197,8 @@ async def api(
             yield session
 
     app.dependency_overrides[get_session] = test_session
+    # AI usage is recorded through its own sessions (after a stream ends): same test DB.
+    app.dependency_overrides[get_sessionmaker] = lambda: sessionmaker
     # Redis db 15 holds rate-limit counters and cached query vectors; start each test empty.
     redis: Redis = Redis.from_url(TEST_REDIS_URL)
     await redis.flushdb()

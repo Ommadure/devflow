@@ -1,4 +1,5 @@
-"""Embed every snippet that isn't "ready", in batches of 32, without a worker.
+"""Embed every snippet that isn't "ready" (batches of 32) and index every note whose
+passages are out of date — without a worker.
 
 Run after the first deploy of Phase 4 (existing snippets start "pending"), or to retry
 failures:
@@ -28,8 +29,9 @@ async def main(include_failed: bool) -> None:
         counts = await indexing.embed_pending(
             session, get_embedding_provider(), include_failed=include_failed
         )
+        note_counts = await indexing.embed_stale_notes(session, get_embedding_provider())
     await get_engine().dispose()
-    print(f"backfill: {counts}")
+    print(f"backfill: snippets {counts}, notes {note_counts}")
 
 
 if __name__ == "__main__":

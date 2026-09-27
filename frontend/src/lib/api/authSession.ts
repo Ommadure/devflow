@@ -36,6 +36,9 @@ export const authSession = createSlice({
       state.user = action.payload.user;
       state.notice = null;
     },
+    userUpdated(state, action: PayloadAction<User>) {
+      state.user = action.payload;
+    },
     signedOut(state, action: PayloadAction<{ notice?: string } | undefined>) {
       state.status = "anonymous";
       state.accessToken = null;
@@ -51,6 +54,6 @@ export const authSession = createSlice({
   },
 });
 
-export const { sessionStarted, signedOut } = authSession.actions;
+export const { sessionStarted, signedOut, userUpdated } = authSession.actions;
 export const { selectAuthStatus, selectAccessToken, selectUser, selectAuthNotice } =
   authSession.selectors;

@@ -16,7 +16,7 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("3 snippets")).toBeInTheDocument();
     expect(screen.getByText("1 note")).toBeInTheDocument();
     expect(screen.getByText("2 today · 12 total")).toBeInTheDocument();
-    expect(screen.getAllByText("Arrives in phase 6")).toHaveLength(2);
+    expect(screen.getAllByText("Open")).toHaveLength(2); // GitHub and API Tester (phase 6)
     const tz = new URL(api.calls[0]!.url).searchParams.get("tz");
     expect(tz).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
   });

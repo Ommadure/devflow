@@ -60,8 +60,17 @@ class ProxyResult:
     redirects: list[str] = field(default_factory=list)
 
 
+# Like curl sending "curl/8.x": many APIs (GitHub among them) refuse requests without one.
+# The user's own User-Agent header, if given, wins.
+DEFAULT_USER_AGENT = "DevFlow-API-Tester/1.0"
+
+
 def _request(
-    method: str, target: Target, headers: dict[str, str], body: bytes | None
+    client: httpx.AsyncClient,
+    method: str,
+    target: Target,
+    headers: dict[str, str],
+    body: bytes | None,
 ) -> httpx.Request:
     netloc = f"[{target.address}]" if ":" in target.address else target.address
     if target.url.port:
@@ -69,7 +78,11 @@ def _request(
     url = target.url._replace(netloc=netloc).geturl()
     host_header = target.host if not target.url.port else f"{target.host}:{target.url.port}"
     clean = {k: v for k, v in headers.items() if k.lower() not in HOP_BY_HOP | OURS}
-    return httpx.Request(
+    if not any(k.lower() == "user-agent" for k in clean):
+        clean["User-Agent"] = DEFAULT_USER_AGENT
+    # build_request (not a bare httpx.Request) merges the client's defaults, such as
+    # Accept-Encoding — a hand-built request silently had no User-Agent at all.
+    return client.build_request(
         method,
         url,
         headers={**clean, "Host": host_header},
@@ -115,7 +128,9 @@ async def _exchange(
     current, redirects = url, list[str]()
     while True:
         target = await check_url(current, resolve)
-        response = await client.send(_request(method, target, headers, payload), stream=True)
+        response = await client.send(
+            _request(client, method, target, headers, payload), stream=True
+        )
         try:
             location = response.headers.get("location")
             if response.is_redirect and location:

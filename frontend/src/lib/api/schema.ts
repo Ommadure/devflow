@@ -120,7 +120,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Me
+         * @description Set (or clear, with null) the GitHub username used for weekly insights.
+         */
+        patch: operations["update_me_api_v1_me_patch"];
         trace?: never;
     };
     "/api/v1/me/password": {
@@ -356,6 +360,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pomodoro/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stats
+         * @description Focus minutes per day (the user's days, in `tz`), totals, and streaks.
+         */
+        get: operations["stats_api_v1_pomodoro_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/summary": {
         parameters: {
             query?: never;
@@ -370,6 +394,129 @@ export interface paths {
         get: operations["summary_api_v1_dashboard_summary_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-tester/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send
+         * @description Send the request from the server and report what came back.
+         *
+         *     A 4xx/5xx from the TARGET is a successful proxy call (200 here, the target's status in
+         *     the body); only a failure to get any answer is an error.
+         */
+        post: operations["send_api_v1_api_tester_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-tester/parse-curl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Curl
+         * @description Turn a copied cURL command into method, URL, headers and body. No AI involved.
+         */
+        post: operations["curl_api_v1_api_tester_parse_curl_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-tester/explain-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain Error
+         * @description Likely causes and fixes for a failed response. Counts against the AI quota.
+         */
+        post: operations["explain_error_api_v1_api_tester_explain_error_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/github/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description A public profile and its six most recently updated repositories (cached 15 min).
+         */
+        get: operations["overview_api_v1_github_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/github/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Insights
+         * @description Stored weekly insights, newest week first.
+         */
+        get: operations["insights_api_v1_github_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/github/insights/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate
+         * @description (Re)generate this week's insight so far. Counts against the daily AI quota.
+         */
+        post: operations["generate_api_v1_github_insights_generate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -406,6 +553,26 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** CurlParsed */
+        CurlParsed: {
+            /** Method */
+            method: string;
+            /** Url */
+            url: string;
+            /** Headers */
+            headers: {
+                [key: string]: string;
+            };
+            /** Body */
+            body: string | null;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** CurlRequest */
+        CurlRequest: {
+            /** Command */
+            command: string;
+        };
         /** DashboardSummary */
         DashboardSummary: {
             /** Snippets */
@@ -420,6 +587,51 @@ export interface components {
              */
             focus_sessions_today: number;
         };
+        /** DayStat */
+        DayStat: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Sessions */
+            sessions: number;
+            /** Minutes */
+            minutes: number;
+        };
+        /**
+         * ExplainErrorRequest
+         * @description The failed exchange, as the tester shows it.
+         */
+        ExplainErrorRequest: {
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
+            /** Url */
+            url: string;
+            /** Status */
+            status: number;
+            /**
+             * Status Text
+             * @default
+             */
+            status_text: string;
+            /**
+             * Response Headers
+             * @default []
+             */
+            response_headers: [
+                string,
+                string
+            ][];
+            /**
+             * Response Body
+             * @default
+             */
+            response_body: string;
+        };
         /** ExplainRequest */
         ExplainRequest: {
             /**
@@ -428,6 +640,72 @@ export interface components {
              * @enum {string}
              */
             level: "beginner" | "intermediate" | "expert";
+        };
+        /** GithubOverview */
+        GithubOverview: {
+            profile: components["schemas"]["GithubProfile"];
+            /** Repos */
+            repos: components["schemas"]["GithubRepo"][];
+        };
+        /** GithubProfile */
+        GithubProfile: {
+            /** Login */
+            login: string;
+            /** Name */
+            name?: string | null;
+            /** Avatar Url */
+            avatar_url: string;
+            /** Html Url */
+            html_url: string;
+            /** Bio */
+            bio?: string | null;
+            /** Company */
+            company?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Blog */
+            blog?: string | null;
+            /**
+             * Followers
+             * @default 0
+             */
+            followers: number;
+            /**
+             * Following
+             * @default 0
+             */
+            following: number;
+            /**
+             * Public Repos
+             * @default 0
+             */
+            public_repos: number;
+        };
+        /** GithubRepo */
+        GithubRepo: {
+            /** Name */
+            name: string;
+            /** Html Url */
+            html_url: string;
+            /** Description */
+            description?: string | null;
+            /** Language */
+            language?: string | null;
+            /**
+             * Stargazers Count
+             * @default 0
+             */
+            stargazers_count: number;
+            /**
+             * Forks Count
+             * @default 0
+             */
+            forks_count: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -443,6 +721,38 @@ export interface components {
              */
             status: "ok";
         };
+        /** HttpErrorExplanation */
+        HttpErrorExplanation: {
+            /** Likely Causes */
+            likely_causes: string[];
+            /** Suggested Fixes */
+            suggested_fixes: string[];
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+        };
+        /** InsightOut */
+        InsightOut: {
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /** Github Username */
+            github_username: string;
+            /** Stats */
+            stats: {
+                [key: string]: unknown;
+            };
+            summary: components["schemas"]["WeeklyInsight"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** LoginRequest */
         LoginRequest: {
             /**
@@ -452,6 +762,15 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /**
+         * MeUpdate
+         * @description PATCH /me: only what the user may change about themselves (email and password have
+         *     their own flows).
+         */
+        MeUpdate: {
+            /** Github Username */
+            github_username?: string | null;
         };
         /** NoteCreate */
         NoteCreate: {
@@ -539,6 +858,73 @@ export interface components {
             completed_at: string;
             /** Duration Seconds */
             duration_seconds: number;
+        };
+        /** PomodoroStats */
+        PomodoroStats: {
+            /**
+             * Range
+             * @enum {string}
+             */
+            range: "7d" | "30d";
+            /** Timezone */
+            timezone: string;
+            /** Days */
+            days: components["schemas"]["DayStat"][];
+            /** Total Sessions */
+            total_sessions: number;
+            /** Total Minutes */
+            total_minutes: number;
+            /**
+             * Current Streak
+             * @description Consecutive days up to today (or yesterday)
+             */
+            current_streak: number;
+            /** Best Streak */
+            best_streak: number;
+        };
+        /** ProxyRequest */
+        ProxyRequest: {
+            /**
+             * Method
+             * @default GET
+             * @enum {string}
+             */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
+            /** Url */
+            url: string;
+            /**
+             * Headers
+             * @default {}
+             */
+            headers: {
+                [key: string]: string;
+            };
+            /** Body */
+            body?: string | null;
+        };
+        /** ProxyResponse */
+        ProxyResponse: {
+            /** Status */
+            status: number;
+            /** Status Text */
+            status_text: string;
+            /** Headers */
+            headers: [
+                string,
+                string
+            ][];
+            /** Body */
+            body: string;
+            /** Body Truncated */
+            body_truncated: boolean;
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Final Url */
+            final_url: string;
+            /** Redirects */
+            redirects: string[];
         };
         /** ReadyOut */
         ReadyOut: {
@@ -756,6 +1142,18 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WeeklyInsight
+         * @description What the model must return (spec §11.8).
+         */
+        WeeklyInsight: {
+            /** Headline */
+            headline: string;
+            /** Highlights */
+            highlights: string[];
+            /** Suggestions */
+            suggestions: string[];
         };
     };
     responses: never;
@@ -979,6 +1377,37 @@ export interface operations {
             };
             /** @description Not authenticated */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_me_api_v1_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Not a valid GitHub username */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1699,6 +2128,37 @@ export interface operations {
             };
         };
     };
+    stats_api_v1_pomodoro_stats_get: {
+        parameters: {
+            query?: {
+                range?: "7d" | "30d";
+                /** @description IANA name, e.g. Asia/Kolkata */
+                tz?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PomodoroStats"];
+                };
+            };
+            /** @description Unknown timezone */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     summary_api_v1_dashboard_summary_get: {
         parameters: {
             query?: {
@@ -1722,6 +2182,232 @@ export interface operations {
             };
             /** @description Unknown timezone */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    send_api_v1_api_tester_send_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProxyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyResponse"];
+                };
+            };
+            /** @description Invalid URL, or a private/reserved destination (BLOCKED_DESTINATION) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description More than 30 requests a minute */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The target was unreachable or too slow (PROXY_UNREACHABLE, PROXY_TIMEOUT) */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    curl_api_v1_api_tester_parse_curl_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurlRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurlParsed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    explain_error_api_v1_api_tester_explain_error_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplainErrorRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HttpErrorExplanation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Rate limited, or the daily AI quota is used up */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    overview_api_v1_github_overview_get: {
+        parameters: {
+            query: {
+                username: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GithubOverview"];
+                };
+            };
+            /** @description No such GitHub user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a valid GitHub username */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description GitHub's rate limit is used up (GITHUB_RATE_LIMITED) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    insights_api_v1_github_insights_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_api_v1_github_insights_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightOut"];
+                };
+            };
+            /** @description No GitHub username set */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Quota */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

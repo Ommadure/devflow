@@ -44,7 +44,7 @@ export const MODULES: Module[] = [
     phase: 6,
   },
   {
-    path: "/api",
+    path: "/api-tester",
     title: "HTTP API Tester",
     navLabel: "API Tester",
     description: "Send requests to any public API and inspect the response.",

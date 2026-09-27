@@ -41,7 +41,7 @@ export function DashboardPage() {
                 <span className="font-semibold">{title}</span>
                 <span className="text-sm text-text/70">{description}</span>
                 <span className="mt-auto w-fit rounded-full bg-surface-2 px-2 py-0.5 text-xs text-text/70">
-                  {phase <= 3 ? (stat ?? "…") : `Arrives in phase ${phase}`}
+                  {phase <= 3 ? (stat ?? "…") : phase <= 6 ? "Open" : `Arrives in phase ${phase}`}
                 </span>
               </Link>
             </li>

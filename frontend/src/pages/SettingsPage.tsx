@@ -9,6 +9,7 @@ import {
   PasswordStrength,
   meetsPasswordRules,
   useChangePasswordMutation,
+  useUpdateMeMutation,
 } from "@/features/auth";
 import { selectUser } from "@/lib/api/authSession";
 import { toApiError } from "@/lib/api/errors";
@@ -33,6 +34,7 @@ export function SettingsPage() {
         </div>
       </section>
 
+      <GithubUsernameCard />
       <ChangePasswordCard />
       <ApiConnectionCard />
     </div>
@@ -100,6 +102,39 @@ function ChangePasswordCard() {
           {isLoading && <Spinner className="size-4" />}
           Change password
         </button>
+      </form>
+    </section>
+  );
+}
+
+function GithubUsernameCard() {
+  const user = useAppSelector(selectUser);
+  const [value, setValue] = useState(user?.github_username ?? "");
+  const [update, { isLoading, isSuccess, error, reset }] = useUpdateMeMutation();
+  const id = useId();
+
+  return (
+    <section aria-labelledby="github-title" className="card">
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void update({ github_username: value.trim() || null });
+        }}
+        onChange={() => isSuccess && reset()}
+      >
+        <h2 id="github-title" className="text-lg font-semibold">GitHub</h2>
+        <p className="text-sm text-text/60">Used for your weekly insights. Public activity only.</p>
+        {error && <ApiErrorMessage error={toApiError(error)} />}
+        {isSuccess && <Alert tone="success">Saved.</Alert>}
+        <div className="flex gap-2">
+          <label htmlFor={id} className="sr-only">GitHub username</label>
+          <input id={id} className="input-field" value={value} placeholder="octocat" maxLength={39}
+            onChange={(e) => setValue(e.target.value)} />
+          <button type="submit" className="btn-primary" disabled={isLoading}>
+            {isLoading && <Spinner className="size-4" />} Save
+          </button>
+        </div>
       </form>
     </section>
   );

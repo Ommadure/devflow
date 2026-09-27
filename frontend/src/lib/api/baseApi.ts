@@ -67,6 +67,6 @@ export const baseApi = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
   // Cache tags: a mutation "invalidates" a tag and every query "providing" it refetches.
-  tagTypes: ["Me", "Snippet", "SnippetTags", "Note", "PomodoroSession", "Dashboard", "AiUsage"],
+  tagTypes: ["Me", "Snippet", "SnippetTags", "Note", "PomodoroSession", "Dashboard", "AiUsage", "GithubInsight"],
   endpoints: () => ({}),
 });

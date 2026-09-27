@@ -153,3 +153,17 @@ async def test_unreachable_and_slow_servers_are_clean_errors(
     respx.get(f"https://{PUBLIC}/slow").mock(side_effect=httpx.ReadTimeout("slow"))
     with pytest.raises(UpstreamError):
         await send(client, "https://api.example.com/slow")
+
+
+@respx.mock
+async def test_a_user_agent_is_always_sent_and_the_users_own_wins(
+    client: httpx.AsyncClient,
+) -> None:
+    """Found against the real GitHub API: a hand-built request had no User-Agent, and GitHub
+    answered 403 "Request forbidden by administrative rules"."""
+    route = respx.get(f"https://{PUBLIC}/").respond(200)
+    await send(client, "https://api.example.com/")
+    assert route.calls.last.request.headers["user-agent"] == proxy.DEFAULT_USER_AGENT
+    assert "accept-encoding" in route.calls.last.request.headers
+    await send(client, "https://api.example.com/", headers={"user-agent": "mine/2"})
+    assert route.calls.last.request.headers["user-agent"] == "mine/2"

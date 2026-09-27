@@ -4,6 +4,7 @@ export {
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
+  useUpdateMeMutation,
 } from "./api/authApi";
 export { ApiErrorMessage } from "./components/ApiErrorMessage";
 export { PasswordField } from "./components/PasswordField";

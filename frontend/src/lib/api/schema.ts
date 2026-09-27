@@ -161,6 +161,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/snippets/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Snippets
+         * @description Hybrid search: `keyword` (full text), `semantic` (meaning) or both fused (`hybrid`).
+         *     Each item says how it matched.
+         */
+        get: operations["search_snippets_api_v1_snippets_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/snippets/tags": {
         parameters: {
             query?: never;
@@ -434,6 +455,56 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** SearchHit */
+        SearchHit: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Code */
+            code: string;
+            /** Language */
+            language: string | null;
+            /** Tags */
+            tags: string[];
+            /** Favorite */
+            favorite: boolean;
+            /**
+             * Embedding Status
+             * @enum {string}
+             */
+            embedding_status: "pending" | "ready" | "failed";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Score
+             * @description Reciprocal Rank Fusion score; higher is better
+             */
+            score: number;
+            /**
+             * Match Type
+             * @enum {string}
+             */
+            match_type: "keyword" | "semantic" | "both";
+        };
+        /** SearchResults */
+        SearchResults: {
+            /** Items */
+            items: components["schemas"]["SearchHit"][];
+        };
         /**
          * SessionOut
          * @description Returned by register, login, refresh and change-password. The refresh token is
@@ -494,6 +565,11 @@ export interface components {
             tags: string[];
             /** Favorite */
             favorite: boolean;
+            /**
+             * Embedding Status
+             * @enum {string}
+             */
+            embedding_status: "pending" | "ready" | "failed";
             /**
              * Created At
              * Format: date-time
@@ -838,8 +914,6 @@ export interface operations {
     list_snippets_api_v1_snippets_get: {
         parameters: {
             query?: {
-                /** @description Substring of title, description or code */
-                q?: string | null;
                 language?: string | null;
                 tag?: string | null;
                 favorite?: boolean | null;
@@ -893,6 +967,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SnippetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_snippets_api_v1_snippets_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                mode?: "keyword" | "semantic" | "hybrid";
+                language?: string | null;
+                tag?: string | null;
+                favorite?: boolean | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
                 };
             };
             /** @description Validation Error */

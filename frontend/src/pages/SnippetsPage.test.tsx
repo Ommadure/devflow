@@ -25,21 +25,65 @@ describe("SnippetsPage", () => {
     expect(screen.getByRole("button", { name: /#timing/ })).toBeInTheDocument();
   });
 
-  it("searches on the server after typing pauses", async () => {
+  it("searches after typing pauses and labels how each result matched", async () => {
     const api = mockFetch({
       "GET /api/v1/snippets": () => json(page([])),
       "GET /api/v1/snippets/tags": () => json([]),
+      "GET /api/v1/snippets/search": () =>
+        json({
+          items: [
+            { ...snippet({ title: "Throttle" }), score: 0.0164, match_type: "semantic" },
+            { ...snippet({ title: "useDebounce" }), score: 0.0161, match_type: "both" },
+          ],
+        }),
+    });
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("Search snippets"), "stop a function firing too often");
+
+    const throttle = await screen.findByRole("article", { name: "Throttle" });
+    expect(within(throttle).getByText("Semantic")).toBeInTheDocument();
+    const debounce = screen.getByRole("article", { name: "useDebounce" });
+    expect(within(debounce).getByText("Keyword + meaning")).toBeInTheDocument();
+    expect(screen.getByText("2 results, best first")).toBeInTheDocument();
+
+    const searches = api.calls.filter((c) => c.url.includes("/snippets/search"));
+    expect(searches).toHaveLength(1); // one request for the whole phrase, not one per key
+    const params = new URL(searches[0]!.url).searchParams;
+    expect([params.get("q"), params.get("mode")]).toEqual(["stop a function firing too often", "hybrid"]);
+  });
+
+  it("switches the search mode", async () => {
+    const api = mockFetch({
+      "GET /api/v1/snippets": () => json(page([])),
+      "GET /api/v1/snippets/tags": () => json([]),
+      "GET /api/v1/snippets/search": () => json({ items: [] }),
     });
     renderPage();
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText("Search snippets"), "debounce");
+    await user.click(screen.getByRole("button", { name: "Keyword" }));
 
     await waitFor(() => {
-      const searches = api.calls.filter((c) => new URL(c.url).searchParams.get("q") === "debounce");
-      expect(searches).toHaveLength(1); // one request for the whole word, not one per key
+      const last = new URL(api.calls.at(-1)!.url).searchParams;
+      expect(last.get("mode")).toBe("keyword");
     });
     expect(await screen.findByText("No snippets match these filters.")).toBeInTheDocument();
+  });
+
+  it("marks snippets that are still being indexed", async () => {
+    mockFetch({
+      "GET /api/v1/snippets": () =>
+        json(page([snippet({ title: "Fresh", embedding_status: "pending" }), snippet({ title: "Old" })])),
+      "GET /api/v1/snippets/tags": () => json([]),
+    });
+    renderPage();
+
+    const fresh = await screen.findByRole("article", { name: "Fresh" });
+    expect(within(fresh).getByText("Indexing…")).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "Old" })).queryByText("Indexing…")).toBeNull();
   });
 
   it("filters by tag and favourites", async () => {

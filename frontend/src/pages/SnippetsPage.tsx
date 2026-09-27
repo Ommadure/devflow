@@ -10,32 +10,57 @@ import {
   useDeleteSnippetMutation,
   useListSnippetsInfiniteQuery,
   useListTagsQuery,
+  useSearchSnippetsQuery,
   type SnippetFilters,
 } from "@/features/snippets";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { toApiError } from "@/lib/api/errors";
-import type { Snippet } from "@/lib/api/types";
+import type { SearchMode, Snippet } from "@/lib/api/types";
 import { cn } from "@/lib/utils/cn";
 
 type Editing = { mode: "create" } | { mode: "edit"; snippet: Snippet } | null;
+
+const MODES: Array<{ mode: SearchMode; label: string; hint: string }> = [
+  { mode: "hybrid", label: "Hybrid", hint: "Words and meaning, fused" },
+  { mode: "keyword", label: "Keyword", hint: "Only the words you typed" },
+  { mode: "semantic", label: "Semantic", hint: "Only by meaning" },
+];
+// While the worker is still embedding new snippets, check back every few seconds.
+const INDEXING_POLL_MS = 3000;
 
 export function SnippetsPage() {
   const [search, setSearch] = useState("");
   const [tag, setTag] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
+  const [mode, setMode] = useState<SearchMode>("hybrid");
   const [editing, setEditing] = useState<Editing>(null);
   const [deleting, setDeleting] = useState<Snippet | null>(null);
   const searchId = useId();
 
-  // Filtering happens on the server; the debounce keeps typing from firing a request per key.
+  // Typing debounced: one search when the user pauses, not one per keystroke.
   const q = useDebouncedValue(search.trim(), 300);
-  const filters: SnippetFilters = { q: q || undefined, tag: tag ?? undefined, favorite };
-  const list = useListSnippetsInfiniteQuery(filters);
+  const searching = q !== "";
+  const filters: SnippetFilters = { tag: tag ?? undefined, favorite };
+
+  const [pollingInterval, setPollingInterval] = useState(0);
+  const list = useListSnippetsInfiniteQuery(filters, { skip: searching, pollingInterval });
+  const results = useSearchSnippetsQuery({ q, mode, ...filters }, { skip: !searching });
   const { data: tags = [] } = useListTagsQuery();
   const [deleteSnippet] = useDeleteSnippetMutation();
 
-  const snippets = list.data?.pages.flatMap((page) => page.items) ?? [];
-  const filtering = Boolean(q || tag || favorite);
+  const listed = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const hits = results.data?.items ?? [];
+  const shown: Snippet[] = searching ? hits : listed;
+  const active = searching ? results : list;
+  const filtering = Boolean(searching || tag || favorite);
+
+  // Poll only while something is still being indexed; stop as soon as it's all ready.
+  // (Adjusting state during render — React's pattern for state derived from the previous
+  // render's data — because the interval depends on data the same hook returns.)
+  const indexing = listed.some((snippet) => snippet.embedding_status === "pending");
+  if ((indexing ? INDEXING_POLL_MS : 0) !== pollingInterval) {
+    setPollingInterval(indexing ? INDEXING_POLL_MS : 0);
+  }
 
   return (
     <div className="space-y-6">
@@ -53,8 +78,19 @@ export function SnippetsPage() {
               Search snippets
             </label>
             <Search aria-hidden className="pointer-events-none absolute top-2.5 left-3 size-4 text-text/40" />
-            <input id={searchId} type="search" className="input-field pl-9" placeholder="Search title, description or code…"
+            <input id={searchId} type="search" className="input-field pl-9"
+              placeholder='Search by words or meaning, e.g. "stop a function firing too often"'
               value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <div role="group" aria-label="Search mode" className="flex gap-1 rounded-lg bg-background p-1">
+            {MODES.map((option) => (
+              <button key={option.mode} type="button" title={option.hint} aria-pressed={mode === option.mode}
+                onClick={() => setMode(option.mode)}
+                className={cn("rounded-md px-3 py-1 text-xs",
+                  mode === option.mode ? "bg-surface-2 text-text" : "text-text/60 hover:text-text")}>
+                {option.label}
+              </button>
+            ))}
           </div>
           <button type="button" aria-pressed={favorite} onClick={() => setFavorite((f) => !f)}
             className={cn("btn-secondary", favorite && "border-warning/60 text-warning")}>
@@ -79,11 +115,11 @@ export function SnippetsPage() {
         )}
       </div>
 
-      {list.isLoading ? (
-        <PageLoader label="Loading snippets…" />
-      ) : list.error ? (
-        <Alert tone="error">{toApiError(list.error).message}</Alert>
-      ) : snippets.length === 0 ? (
+      {active.isLoading ? (
+        <PageLoader label={searching ? "Searching…" : "Loading snippets…"} />
+      ) : active.error ? (
+        <Alert tone="error">{toApiError(active.error).message}</Alert>
+      ) : shown.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 py-12 text-center">
           <Code aria-hidden className="size-10 text-text/30" />
           <p className="text-text/70">{filtering ? "No snippets match these filters." : "No snippets yet."}</p>
@@ -95,13 +131,19 @@ export function SnippetsPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2" aria-busy={list.isFetching}>
-            {snippets.map((snippet, index) => (
+          {searching && (
+            <p className="text-sm text-text/60" aria-live="polite">
+              {hits.length} {hits.length === 1 ? "result" : "results"}, best first
+            </p>
+          )}
+          <div className="grid gap-4 lg:grid-cols-2" aria-busy={active.isFetching}>
+            {shown.map((snippet, index) => (
               <SnippetCard key={snippet.id} snippet={snippet} index={index}
+                matchType={searching ? hits[index]?.match_type : undefined}
                 onEdit={(s) => setEditing({ mode: "edit", snippet: s })} onDelete={setDeleting} />
             ))}
           </div>
-          {list.hasNextPage && (
+          {!searching && list.hasNextPage && (
             <div className="flex justify-center">
               <button type="button" className="btn-secondary" disabled={list.isFetchingNextPage}
                 onClick={() => void list.fetchNextPage()}>

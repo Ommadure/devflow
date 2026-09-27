@@ -66,8 +66,8 @@ insights (P6).
 | 0 | Scaffold: repo, spec, ADRs, empty backend and frontend, Docker Compose, CI | ✅ |
 | 1 | Backend foundation and authentication | ✅ |
 | 2 | Frontend shell and auth UI | ✅ |
-| 3 | Snippets, notes, timer, dashboard | 🟡 in review |
-| 4 | pgvector, embeddings, Taskiq worker, hybrid search | ⏳ |
+| 3 | Snippets, notes, timer, dashboard | ✅ |
+| 4 | pgvector, embeddings, Taskiq worker, hybrid search | 🟡 in review |
 | 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | ⏳ |
 | 6 | API tester proxy, pomodoro stats, GitHub overview and insights | ⏳ |
 | 7 | Search evaluation, hardening, production deployment | ⏳ |
@@ -149,8 +149,8 @@ first-party and no CORS preflight is needed.
 | Logging / errors | structlog (JSON in production) · Sentry when `SENTRY_DSN` is set | P1 |
 | Quality | Ruff (lint + format), mypy `--strict` | P0 |
 | Tests | pytest, pytest-asyncio, httpx `AsyncClient`, respx | P0 |
-| Background jobs | Taskiq + `taskiq-redis` (worker and scheduler) | P4 |
-| Vectors / embeddings | pgvector, FastEmbed | P4 |
+| Background jobs | Taskiq 0.12 + `taskiq-redis` (Redis Streams, at-least-once; worker and scheduler). Pinned `<0.13`: taskiq 0.13.0 (2026-09-26) breaks taskiq-redis 1.2.3 | P4 |
+| Vectors / embeddings | pgvector (`pgvector` SQLAlchemy type, no asyncpg codec needed), FastEmbed with the model baked into the image | P4 |
 | LLM | provider interface; Gemini default; OpenAI-compatible swappable; fake for tests | P5 |
 
 ### Infrastructure
@@ -307,12 +307,15 @@ forgot-password flow (ADR 0001): there is no email sending.
 Snippets, Notes, Timer, API Tester), each with an icon, description and, where relevant, a
 count from `GET /dashboard/summary`.
 
-**SnippetsPage** (P3) — Header with *Add Snippet*. Search (300 ms debounce) and tag chips
-from `GET /snippets/tags`. Two-column animated card grid: title, language, code block,
+**SnippetsPage** (P3–P4) — Header with *Add Snippet*. Tag chips from
+`GET /snippets/tags` and a favourites filter. Two-column animated card grid: title, language, code block,
 tags; hover reveals copy (with a 2-second ✓), edit, delete, favourite. Create / edit modal
 with title, description, language, comma-separated tags and code. Delete asks via
 `ConfirmDialog`. Cursor pagination with *Load more*. Empty state with an icon.
-P4: hybrid search bar with mode, filters and a match-type badge.
+P4 ✅: typing (300 ms debounce) switches the grid to ranked results from
+`/snippets/search` with a Hybrid / Keyword / Semantic selector and a badge per result
+(*Keyword*, *Semantic*, *Keyword + meaning*). Snippets the worker hasn't embedded yet show
+"Indexing…", and the list polls every 3 s only while any are pending.
 P5: *Explain* panel (streaming markdown, level selector, Stop button) and AI tag
 suggestions as accept/dismiss chips.
 
@@ -604,11 +607,11 @@ and use the error format in 8.4. Lists use cursor pagination:
 
 | Method | Path | Notes | Phase |
 |---|---|---|---|
-| GET | `/snippets` | filters `q`, `language`, `tag`, `favorite`; paginated | P3 |
+| GET | `/snippets` | filters `language`, `tag`, `favorite`; paginated; items carry `embedding_status` (P4) | P3 |
 | GET | `/snippets/tags` | distinct tags with counts, for the filter chips | P3 |
 | POST | `/snippets` | create (P4: then enqueue `embed_snippet`) | P3 |
 | GET / PATCH / DELETE | `/snippets/{id}` | P4: PATCH re-embeds only if the content hash changed | P3 |
-| GET | `/snippets/search?q=&mode=hybrid&language=&tag=&limit=10` | `mode` = `keyword` \| `semantic` \| `hybrid`; items carry `score` and `match_type` | P4 |
+| GET | `/snippets/search?q=&mode=hybrid&language=&tag=&favorite=&limit=10` | `mode` = `keyword` \| `semantic` \| `hybrid`; items carry `score` and `match_type` | P4 |
 | POST | `/snippets/{id}/ai/tags` | suggested `language`, `tags[]`, `description`; never overwrites user tags | P5 |
 | POST | `/snippets/{id}/ai/explain` | **SSE**; body `{ level: beginner \| intermediate \| expert }` | P5 |
 
@@ -678,12 +681,15 @@ sessions — so one index serves both the ownership filter and keyset pagination
 | `notes` | `id uuid pk`, `user_id`, `title text`, `content text`, `created_at`, `updated_at` | P3 |
 | `pomodoro_sessions` | `id uuid pk`, `user_id`, `completed_at timestamptz`, `duration_seconds int check (> 0)`, `created_at`; index `(user_id, completed_at)` | P3 |
 
-**Snippets search columns (P4)** — `content_hash text`; `embedding vector(384)`;
+**Snippets search columns (P4 ✅)** — `content_hash text`; `embedding vector(384)`;
 `embedding_status text not null default 'pending'` in (`pending`, `ready`, `failed`);
-`embedded_at timestamptz`; `ai_tags text[]`, `ai_description text`, `ai_language text`;
-`search_tsv tsvector` **generated always … stored**, weighted title (A), description (B),
-tags (B), code (C, `simple` config). Indexes: HNSW on `embedding` (`vector_cosine_ops`),
-GIN on `search_tsv`.
+`embedded_at timestamptz`; `search_tsv tsvector` **generated always … stored**, weighted
+title (A), description (B), tags (B), code (C, `simple` config). Two IMMUTABLE helpers:
+`snippet_tags_text(text[])` (generated columns can't call the merely STABLE
+`array_to_string`) and `search_words(text)`, which appends a camelCase-split copy so
+"debounce" finds `useDebounce`. Indexes: HNSW on `embedding` (`vector_cosine_ops`), GIN on
+`search_tsv`. `embedding` and `search_tsv` are deferred with raiseload, so lists never
+load 384 floats per row. The `ai_*` columns arrive with auto-tagging in P5.
 
 **`note_chunks` (P5)** — `id`, `note_id → notes on delete cascade`, `user_id`,
 `chunk_index`, `heading`, `content`, `content_hash`, `token_count`, `embedding vector(384)`,
@@ -709,8 +715,13 @@ generated `search_tsv`, `created_at`, `unique(note_id, chunk_index)`; HNSW, GIN 
   to the model's 512-token limit.
 - **Idempotency:** hash the embedding text; if the hash is unchanged and status is
   `ready`, skip. This is what makes a 1-second notes autosave harmless.
-- Always in the worker, never inside the request. `backfill_embeddings` covers rows that
-  were created before the pipeline existed or whose embedding failed.
+- Always in the worker, never inside the request; enqueued **after** the commit. An
+  update re-embeds only when the embedding text's hash changed (starring is free).
+- **Stale writes:** the worker writes with `WHERE updated_at = <version it read>`, so an
+  edit made while it was embedding is never overwritten by a vector for the old text.
+- **Failures:** 3 attempts with backoff, then `failed`. A scheduled sweep every 10 min
+  embeds rows left `pending` for 5+ minutes (lost jobs), and
+  `scripts/backfill_embeddings.py [--include-failed]` embeds everything not ready.
 
 ### 11.2 Hybrid search (P4)
 
@@ -723,7 +734,11 @@ One SQL query with CTEs, always scoped to `user_id` and the filters:
 3. **Fusion:** `score = Σ 1 / (60 + rank)` across branches; return the top `limit`.
 
 `match_type` is `keyword`, `semantic` or `both`. `mode=keyword|semantic` return one branch,
-which the evaluation needs. Comment in the code why RRF beats adding raw scores.
+which the evaluation needs. The keyword branch ORs an `english` and a `simple` parse of the
+query, matching how prose and code were indexed. The semantic branch only counts neighbours
+within cosine distance 0.4 (similarity ≥ 0.6) — nearest neighbours always exist, and
+without a cut-off every query would "match" everything. Known weakness to tune in P7:
+one-word queries embed poorly, so they can pull in a weak semantic neighbour.
 
 ### 11.3 Explain this code (P5)
 
@@ -843,8 +858,10 @@ current access token but not their refresh sessions.
   type returns the same 404 as a missing row, and leaves the row untouched**
   (mutation-checked); a pagination walk that sees every row exactly once; literal `%`/`_`
   in search; "today" across timezones; autosave debounce, serialisation and flush.
-- P4: search ranking with deterministic fake embeddings (keyword-only, semantic-only,
-  both); embedding idempotency.
+- P4 ✅: search ranking with deterministic fake embeddings (keyword-only, semantic-only,
+  both, exact RRF scores), stemming vs exact code tokens, camelCase, per-user search,
+  hostile query syntax, the query cache; embedding idempotency, stale-write protection,
+  retries → failed, the sweep; opt-in tests against the real model.
 - P5: rate limiter and quota → 429 with `Retry-After`; every redaction pattern; SSE event
   format and the error event; the SSE parser with chunks split mid-line.
 - P6: SSRF cases (private IPs, localhost, metadata IP, IPv6 loopback, redirect to a
@@ -922,7 +939,7 @@ it is secret.
 | **1 Backend + auth** | A script can register, log in, refresh, call `/me`, change the password and log out; the auth test suite passes; CI green |
 | **2 Frontend shell** | In the browser: create an account, reload and stay signed in, see *Connected* on Settings, change the password, sign out |
 | **3 CRUD** | Snippets, notes, timer and dashboard work end to end through the API; IDOR tests pass; ≥ 80% coverage on services and repositories |
-| **4 Search** | An intent-style query finds a snippet keyword search misses; existing snippets are backfilled |
+| **4 Search** ✅ | An intent-style query finds a snippet keyword search misses; existing snippets are backfilled |
 | **5 AI** | Explain, auto-tag and Ask your notes work in the UI; `ai_usage` rows record cost; quota and limits return 429 |
 | **6 Proxy, stats, GitHub** | The tester reaches APIs that fail on browser CORS; SSRF tests pass; insights generate and display |
 | **7 Eval & deploy** | Evaluation table exists; production frontend, API, worker and scheduler run; README matches what shipped |

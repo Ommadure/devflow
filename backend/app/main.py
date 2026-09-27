@@ -18,6 +18,8 @@ from app.core.redis import get_redis
 from app.db.session import get_engine
 from app.services.ai.embeddings import check_embedding_config
 from app.services.ai.llm.factory import check_llm_config, llm_http_client
+from app.services.api_tester.proxy import proxy_http_client
+from app.services.github.client import github_http_client
 
 log = structlog.get_logger()
 
@@ -34,6 +36,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
     await broker.shutdown()
     await llm_http_client().aclose()
+    await proxy_http_client().aclose()
+    await github_http_client().aclose()
     # Close pooled connections cleanly so shutdown doesn't leave sockets open.
     await get_engine().dispose()
     await get_redis().aclose()

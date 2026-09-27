@@ -1,7 +1,17 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import general_rate_limit
-from app.api.v1.routes import ai, auth, dashboard, me, notes, pomodoro, snippets
+from app.api.v1.routes import (
+    ai,
+    api_tester,
+    auth,
+    dashboard,
+    github,
+    me,
+    notes,
+    pomodoro,
+    snippets,
+)
 
 api_router = APIRouter(prefix="/api/v1")
 # Auth has its own, stricter limits (per IP and per email) and no user yet.
@@ -15,4 +25,6 @@ protected.include_router(snippets.router)
 protected.include_router(notes.router)
 protected.include_router(pomodoro.router)
 protected.include_router(dashboard.router)
+protected.include_router(api_tester.router)
+protected.include_router(github.router)
 api_router.include_router(protected)

@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
 
+from app.services.github.client import validate_username
+
 PASSWORD_MIN_LENGTH = 8
 # Argon2 accepts any length, but hashing megabytes per request is a cheap DoS; 128 is
 # far beyond any passphrase a person types.
@@ -74,3 +76,12 @@ class SessionOut(BaseModel):
     token_type: str = "bearer"  # noqa: S105  (the OAuth 2 scheme name, not a secret)
     expires_in: int = Field(description="Seconds until the access token expires.")
     user: UserOut
+
+
+class MeUpdate(BaseModel):
+    """PATCH /me: only what the user may change about themselves (email and password have
+    their own flows)."""
+
+    github_username: Annotated[
+        str | None, AfterValidator(lambda v: validate_username(v) if v else None)
+    ] = None

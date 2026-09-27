@@ -9,16 +9,19 @@ import time
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from contextlib import aclosing
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
 import anyio
 import structlog
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ServiceUnavailableError, UpstreamError
 from app.models import Snippet
 from app.repositories.note_search import ChunkHit, search_chunks
 from app.schemas.ai import SnippetTagSuggestion, Source
+from app.schemas.api_tester import ExplainErrorRequest, HttpErrorExplanation
 from app.services.ai.embeddings import EmbeddingProvider
 from app.services.ai.llm.base import (
     LLMError,
@@ -151,34 +154,34 @@ def explain_messages(snippet: Snippet, level: str) -> list[Message]:
 # ---- auto-tag ----
 
 
-async def suggest_tags(
-    llm: LLMProvider, snippet: Snippet, usage: AiUsageService
-) -> SnippetTagSuggestion:
+async def structured_call[T: BaseModel](
+    llm: LLMProvider,
+    messages: list[Message],
+    schema: type[T],
+    *,
+    feature: Feature,
+    prompt_version: str,
+    usage: AiUsageService,
+    max_output_tokens: int = 400,
+) -> T:
     """Structured output with one repair attempt: if the reply isn't valid, show the model
-    its own reply and exactly what was wrong, and ask once more."""
-    messages = [
-        Message("system", load(TAGS_PROMPT)),
-        Message(
-            "user",
-            f"Title: {_clean(snippet.title)}\n"
-            f"Description: {_clean(snippet.description or '')}\n\n{_clean(snippet.code)}",
-        ),
-    ]
+    its own reply and exactly what was wrong, and ask once more. Every attempt is recorded.
+    """
     for attempt in (1, 2):
         started = time.monotonic()
         try:
             result = await llm.generate_structured(
-                messages, SnippetTagSuggestion, temperature=0.2, max_output_tokens=300
+                messages, schema, temperature=0.2, max_output_tokens=max_output_tokens
             )
         except LLMInvalidOutput as exc:
             await usage.record(
-                "auto_tag", provider=llm.name, model=llm.model, status="error",
-                prompt_version=TAGS_PROMPT, usage=exc.usage, latency_ms=_ms(started),
+                feature, provider=llm.name, model=llm.model, status="error",
+                prompt_version=prompt_version, usage=exc.usage, latency_ms=_ms(started),
                 error_code=exc.code,
             )  # fmt: skip
             if attempt == 2:
                 raise UpstreamError(
-                    "The AI couldn't produce usable tags. Try again.", code="AI_INVALID_OUTPUT"
+                    "The AI couldn't produce a usable answer. Try again.", code="AI_INVALID_OUTPUT"
                 ) from exc
             messages = [
                 *messages,
@@ -192,8 +195,8 @@ async def suggest_tags(
             continue
         except LLMError as exc:
             await usage.record(
-                "auto_tag", provider=llm.name, model=llm.model, status="error",
-                prompt_version=TAGS_PROMPT, usage=exc.usage, latency_ms=_ms(started),
+                feature, provider=llm.name, model=llm.model, status="error",
+                prompt_version=prompt_version, usage=exc.usage, latency_ms=_ms(started),
                 error_code=exc.code,
             )  # fmt: skip
             if isinstance(exc, LLMRateLimited):
@@ -202,11 +205,65 @@ async def suggest_tags(
                 ) from exc
             raise UpstreamError("The AI service failed. Try again.", code="AI_FAILED") from exc
         await usage.record(
-            "auto_tag", provider=llm.name, model=llm.model, status="success",
-            prompt_version=TAGS_PROMPT, usage=result.usage, latency_ms=result.latency_ms,
+            feature, provider=llm.name, model=llm.model, status="success",
+            prompt_version=prompt_version, usage=result.usage, latency_ms=result.latency_ms,
         )  # fmt: skip
         return result.output
     raise AssertionError("unreachable")  # pragma: no cover
+
+
+async def suggest_tags(
+    llm: LLMProvider, snippet: Snippet, usage: AiUsageService
+) -> SnippetTagSuggestion:
+    messages = [
+        Message("system", load(TAGS_PROMPT)),
+        Message(
+            "user",
+            f"Title: {_clean(snippet.title)}\n"
+            f"Description: {_clean(snippet.description or '')}\n\n{_clean(snippet.code)}",
+        ),
+    ]
+    return await structured_call(
+        llm, messages, SnippetTagSuggestion, feature="auto_tag",
+        prompt_version=TAGS_PROMPT, usage=usage, max_output_tokens=300,
+    )  # fmt: skip
+
+
+# ---- explain an HTTP error (the API tester) ----
+
+HTTP_ERROR_PROMPT = "explain_http_error_v1"
+BODY_EXCERPT = 2_000
+# Headers that help diagnose a failure; the rest (cookies, tracking) would only add noise.
+USEFUL_HEADERS = {"content-type", "www-authenticate", "retry-after", "allow", "location",
+                  "x-ratelimit-remaining", "x-ratelimit-reset", "ratelimit-remaining",
+                  "access-control-allow-origin", "server"}  # fmt: skip
+
+
+async def explain_http_error(
+    llm: LLMProvider, request: ExplainErrorRequest, usage: AiUsageService
+) -> HttpErrorExplanation:
+    url = urlsplit(request.url)
+    # The query string can carry tokens (?api_key=...); the path is enough to reason with.
+    shown_url = urlunsplit((url.scheme, url.netloc, url.path, "", ""))
+    headers = "\n".join(
+        f"{name}: {_clean(value)}"
+        for name, value in request.response_headers
+        if name.lower() in USEFUL_HEADERS
+    )
+    body = _clean(request.response_body[:BODY_EXCERPT])
+    messages = [
+        Message("system", load(HTTP_ERROR_PROMPT)),
+        Message(
+            "user",
+            f"Request: {request.method} {shown_url}\n"
+            f"Response: {request.status} {request.status_text}\n"
+            f"Headers:\n{headers or '(none)'}\n\nBody (start):\n{body or '(empty)'}",
+        ),
+    ]
+    return await structured_call(
+        llm, messages, HttpErrorExplanation, feature="explain_http_error",
+        prompt_version=HTTP_ERROR_PROMPT, usage=usage,
+    )  # fmt: skip
 
 
 # ---- ask your notes ----

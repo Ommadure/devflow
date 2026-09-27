@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     # calling the LLM (no cost, no made-up answer).
     notes_min_similarity: float = Field(default=0.6, ge=0, le=1)
 
+    # GitHub (Phase 6). A token raises the limit from 60 to 5,000 requests an hour; it needs
+    # no scopes at all (public data only). Without one, the overview still works, slowly.
+    github_token: SecretStr = SecretStr("")
+    github_api_url: str = "https://api.github.com"
+
     sentry_dsn: str = ""  # empty: Sentry off
     sentry_traces_sample_rate: float = Field(default=0.0, ge=0, le=1)
 

@@ -14,7 +14,7 @@ from app.api.v1.routes.auth import start_session
 from app.core.errors import UnauthorizedError
 from app.core.rate_limit import Rule
 from app.repositories import users
-from app.schemas.auth import ChangePasswordRequest, SessionOut, UserOut
+from app.schemas.auth import ChangePasswordRequest, MeUpdate, SessionOut, UserOut
 
 router = APIRouter(prefix="/me", tags=["account"])
 
@@ -51,3 +51,15 @@ async def change_password(
     await enforce(limiter, f"password:user:{current.id}", CHANGE_PASSWORD_PER_USER)
     issued = await auth.change_password(current.id, body.current_password, body.new_password)
     return start_session(response, issued, settings)
+
+
+@router.patch("", responses={422: {"description": "Not a valid GitHub username"}})
+async def update_me(body: MeUpdate, current: CurrentUserDep, session: SessionDep) -> UserOut:
+    """Set (or clear, with null) the GitHub username used for weekly insights."""
+    user = await users.get_by_id(session, current.id)
+    if user is None:
+        raise UnauthorizedError("Invalid access token.", code="INVALID_TOKEN")
+    if "github_username" in body.model_fields_set:
+        user.github_username = body.github_username
+    await session.commit()
+    return UserOut.model_validate(user)

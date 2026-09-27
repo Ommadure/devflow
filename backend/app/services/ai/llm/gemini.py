@@ -20,6 +20,7 @@ from app.services.ai.llm.base import (
     LLMError,
     LLMProvider,
     LLMRateLimited,
+    LLMTruncated,
     Message,
     StreamChunk,
     TokenUsage,
@@ -45,6 +46,7 @@ class GeminiProvider(LLMProvider):
         timeout: float = 60.0,
         max_retries: int = 2,
         max_inline_wait: float = 10.0,
+        thinking_level: str = "",
         sleep: Sleep = asyncio.sleep,
     ) -> None:
         if not api_key:
@@ -58,6 +60,7 @@ class GeminiProvider(LLMProvider):
         self._timeout = timeout
         self._max_retries = max_retries
         self._max_inline_wait = max_inline_wait
+        self._thinking_level = thinking_level
         self._sleep = sleep
 
     @property
@@ -74,7 +77,10 @@ class GeminiProvider(LLMProvider):
         max_output_tokens: int | None = None,
     ) -> Completion:
         url = f"{self._base_url}/models/{self.model}:generateContent"
-        body = _request_body(messages, temperature, max_output_tokens, json_output=json_output)
+        body = _request_body(
+            messages, temperature, max_output_tokens, json_output=json_output,
+            thinking_level=self._thinking_level,
+        )  # fmt: skip
         started = time.monotonic()
         attempt = 0
         while True:
@@ -110,7 +116,10 @@ class GeminiProvider(LLMProvider):
         HTTP stream, which cancels the upstream generation — and its billing.
         """
         url = f"{self._base_url}/models/{self.model}:streamGenerateContent"
-        body = _request_body(messages, temperature, max_output_tokens, json_output=False)
+        body = _request_body(
+            messages, temperature, max_output_tokens, json_output=False,
+            thinking_level=self._thinking_level,
+        )  # fmt: skip
         started = time.monotonic()
         attempt = 0
         while True:
@@ -130,16 +139,24 @@ class GeminiProvider(LLMProvider):
                             continue
                         _raise_for_error(response, started)
                     usage = TokenUsage()
+                    finish = None
                     async for line in response.aiter_lines():
                         if not line.startswith("data:"):
                             continue  # blank separators between SSE events
                         data = json.loads(line.removeprefix("data:").strip())
                         usage = _usage(data) or usage
+                        finish = _finish_reason(data) or finish
                         text = _text(data)
                         if text:
                             yield StreamChunk(text=text)
                         elif not data.get("candidates"):
                             _raise_if_blocked(data, usage)
+                    if finish == "MAX_TOKENS":
+                        # Too late to raise: the reader already has most of the answer.
+                        log.warning("llm.truncated", model=self.model, streaming=True)
+                        yield StreamChunk(
+                            text="\n\n*(Cut short: the answer reached its length limit.)*"
+                        )
                     yield StreamChunk(usage=usage)
                     return
             except httpx.TransportError as exc:
@@ -180,6 +197,7 @@ def _request_body(
     max_output_tokens: int | None,
     *,
     json_output: bool,
+    thinking_level: str = "",
 ) -> dict[str, Any]:
     system = "\n\n".join(m.content for m in messages if m.role == "system")
     contents = [
@@ -193,6 +211,8 @@ def _request_body(
     if max_output_tokens:
         # A hard ceiling on what one call can bill (and on a runaway answer).
         config["maxOutputTokens"] = max_output_tokens
+    if thinking_level:
+        config["thinkingConfig"] = {"thinkingLevel": thinking_level}
     body: dict[str, Any] = {"contents": contents, "generationConfig": config}
     if system:
         body["systemInstruction"] = {"parts": [{"text": system}]}
@@ -219,6 +239,11 @@ def _text(data: dict[str, Any]) -> str:
     return "".join(part.get("text", "") for part in parts if not part.get("thought"))
 
 
+def _finish_reason(data: dict[str, Any]) -> str | None:
+    candidates = data.get("candidates") or []
+    return candidates[0].get("finishReason") if candidates else None
+
+
 def _raise_if_blocked(data: dict[str, Any], usage: TokenUsage) -> None:
     reason = (data.get("promptFeedback") or {}).get("blockReason")
     if reason:
@@ -230,6 +255,12 @@ def _parse_completion(data: dict[str, Any], model: str, latency_ms: int) -> Comp
     if not data.get("candidates"):
         _raise_if_blocked(data, usage)
         raise LLMError("Gemini returned no answer", usage=usage)
+    if _finish_reason(data) == "MAX_TOKENS":
+        raise LLMTruncated(
+            f"answer cut off at the output limit ({usage.output_tokens} tokens)",
+            usage=usage,
+            latency_ms=latency_ms,
+        )
     return Completion(_text(data), usage, latency_ms, str(data.get("modelVersion") or model))
 
 

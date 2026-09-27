@@ -543,6 +543,13 @@ class LLMProvider(Protocol):
                      temperature: float = 0.3) -> AsyncIterator[StreamChunk]: ...
 ```
 
+**Thinking models:** Gemini 3.x spends hidden "thinking" tokens that count against
+`maxOutputTokens`. Measured on the real model: a tagging call spent 287 of its 300 tokens
+thinking and never wrote the JSON; an explanation took 1,040 tokens and 30 s. With
+`LLM_THINKING_LEVEL=minimal` (sent as `thinkingConfig.thinkingLevel`): valid JSON, and the
+explanation dropped to 288 tokens / 11 s. A `MAX_TOKENS` finish is its own error
+(`LLMTruncated`, no pointless repair attempt); a truncated stream ends with a visible note.
+
 Implementations: Gemini (default, plain httpx against the REST API) and `FakeLLMProvider`;
 an OpenAI-compatible provider (Ollama/vLLM) fits the same ABC when needed. The key is checked
 when the API starts — not in `Settings`, which migrations and scripts also load. `LLMResult` carries the parsed
@@ -942,7 +949,7 @@ build, `npm audit`. CI holds no real credentials.
 | | `DATABASE_URL`, `DATABASE_DIRECT_URL`, `REDIS_URL` |
 | | `JWT_SECRET`, `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REFRESH_REUSE_GRACE_SECONDS`, `COOKIE_SECURE` |
 | | `CORS_ORIGINS` |
-| | `LLM_PROVIDER`, `LLM_MODEL`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+| | `LLM_PROVIDER`, `LLM_MODEL`, `GEMINI_API_KEY`, `LLM_THINKING_LEVEL`, `LLM_PRICING`, `NOTES_MIN_SIMILARITY` |
 | | `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIM` |
 | | `GITHUB_TOKEN`, `AI_DAILY_QUOTA_PER_USER`, `SENTRY_DSN` |
 

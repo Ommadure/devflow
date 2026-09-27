@@ -259,25 +259,6 @@
         "operationId": "list_snippets_api_v1_snippets_get",
         "parameters": [
           {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 200
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Substring of title, description or code",
-              "title": "Q"
-            },
-            "description": "Substring of title, description or code"
-          },
-          {
             "name": "language",
             "in": "query",
             "required": false,
@@ -404,6 +385,128 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SnippetOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/snippets/search": {
+      "get": {
+        "tags": [
+          "snippets"
+        ],
+        "summary": "Search Snippets",
+        "description": "Hybrid search: `keyword` (full text), `semantic` (meaning) or both fused (`hybrid`).\nEach item says how it matched.",
+        "operationId": "search_snippets_api_v1_snippets_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "keyword",
+                "semantic",
+                "hybrid"
+              ],
+              "type": "string",
+              "default": "hybrid",
+              "title": "Mode"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "name": "favorite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
                 }
               }
             }
@@ -1336,6 +1439,121 @@
         ],
         "title": "RegisterRequest"
       },
+      "SearchHit": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          },
+          "embedding_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "title": "Embedding Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "Reciprocal Rank Fusion score; higher is better"
+          },
+          "match_type": {
+            "type": "string",
+            "enum": [
+              "keyword",
+              "semantic",
+              "both"
+            ],
+            "title": "Match Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "code",
+          "language",
+          "tags",
+          "favorite",
+          "embedding_status",
+          "created_at",
+          "updated_at",
+          "score",
+          "match_type"
+        ],
+        "title": "SearchHit"
+      },
+      "SearchResults": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "SearchResults"
+      },
       "SessionOut": {
         "properties": {
           "access_token": {
@@ -1474,6 +1692,15 @@
             "type": "boolean",
             "title": "Favorite"
           },
+          "embedding_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "title": "Embedding Status"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -1494,6 +1721,7 @@
           "language",
           "tags",
           "favorite",
+          "embedding_status",
           "created_at",
           "updated_at"
         ],

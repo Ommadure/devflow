@@ -12,6 +12,7 @@ export function snippet(overrides: Partial<Snippet> = {}): Snippet {
     language: "javascript",
     tags: ["timing"],
     favorite: false,
+    embedding_status: "ready",
     created_at: "2026-09-27T10:00:00Z",
     updated_at: "2026-09-27T10:00:00Z",
     ...overrides,

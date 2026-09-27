@@ -82,13 +82,9 @@ async def test_filters(api: httpx.AsyncClient, alice: Headers) -> None:
         response = await api.get(URL, params=params, headers=alice)
         return sorted(item["title"] for item in response.json()["items"])
 
-    assert await titles(q="throt") == ["Throttle"]
     assert await titles(language="TYPESCRIPT") == ["Throttle"]
     assert await titles(tag="timing") == ["Debounce"]
     assert await titles(favorite="true") == ["Debounce"]
-    # % is matched literally, not as "anything".
-    assert await titles(q="100%") == ["100% width"]
-    assert await titles(q="%") == ["100% width"]
 
 
 async def test_cursor_pagination_walks_every_row_once(

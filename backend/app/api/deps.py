@@ -13,10 +13,13 @@ from app.core.rate_limit import RateLimiter, RedisRateLimiter, Rule
 from app.core.redis import get_redis
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_session
+from app.services.ai.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.auth import AuthService
 from app.services.notes import NoteService
 from app.services.pomodoro import PomodoroService
+from app.services.search import SearchService
 from app.services.snippets import SnippetService
+from app.workers.dispatch import JobDispatcher, get_dispatcher
 
 
 def get_rate_limiter() -> RateLimiter:
@@ -50,9 +53,20 @@ async def enforce(limiter: RateLimiter, key: str, rule: Rule) -> None:
 
 # ---- resource services: always built for the signed-in user ----
 
+DispatcherDep = Annotated[JobDispatcher, Depends(get_dispatcher)]
+EmbeddingsDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
 
-def get_snippet_service(session: SessionDep, current: CurrentUserDep) -> SnippetService:
-    return SnippetService(session, current.id)
+
+def get_snippet_service(
+    session: SessionDep, current: CurrentUserDep, dispatcher: DispatcherDep, provider: EmbeddingsDep
+) -> SnippetService:
+    return SnippetService(session, current.id, dispatcher, provider.model_name)
+
+
+def get_search_service(
+    session: SessionDep, current: CurrentUserDep, provider: EmbeddingsDep, settings: SettingsDep
+) -> SearchService:
+    return SearchService(session, current.id, provider, get_redis(), settings)
 
 
 def get_note_service(session: SessionDep, current: CurrentUserDep) -> NoteService:
@@ -64,6 +78,7 @@ def get_pomodoro_service(session: SessionDep, current: CurrentUserDep) -> Pomodo
 
 
 SnippetServiceDep = Annotated[SnippetService, Depends(get_snippet_service)]
+SearchServiceDep = Annotated[SearchService, Depends(get_search_service)]
 NoteServiceDep = Annotated[NoteService, Depends(get_note_service)]
 PomodoroServiceDep = Annotated[PomodoroService, Depends(get_pomodoro_service)]
 PageParamsDep = Annotated[PageParams, Depends(page_params)]

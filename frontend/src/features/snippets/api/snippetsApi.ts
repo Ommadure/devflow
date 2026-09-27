@@ -1,10 +1,14 @@
 import { baseApi } from "@/lib/api/baseApi";
-import type { Page, Schemas, Snippet, TagCount } from "@/lib/api/types";
+import type { Page, Schemas, SearchHit, SearchMode, Snippet, TagCount } from "@/lib/api/types";
 
 export interface SnippetFilters {
-  q?: string;
   tag?: string;
   favorite?: boolean;
+}
+
+export interface SnippetSearch extends SnippetFilters {
+  q: string;
+  mode: SearchMode;
 }
 type SnippetCreate = Schemas["SnippetCreate"];
 type SnippetUpdate = Schemas["SnippetUpdate"];
@@ -27,10 +31,17 @@ export const snippetsApi = baseApi.injectEndpoints({
         params: {
           limit: PAGE_SIZE,
           ...(pageParam && { cursor: pageParam }),
-          ...(queryArg.q && { q: queryArg.q }),
           ...(queryArg.tag && { tag: queryArg.tag }),
           ...(queryArg.favorite && { favorite: true }),
         },
+      }),
+      providesTags: ["Snippet"],
+    }),
+    // Ranked results, not a paginated list: the top 20 by fused score.
+    searchSnippets: build.query<{ items: SearchHit[] }, SnippetSearch>({
+      query: ({ q, mode, tag, favorite }) => ({
+        url: "/snippets/search",
+        params: { q, mode, limit: 20, ...(tag && { tag }), ...(favorite && { favorite: true }) },
       }),
       providesTags: ["Snippet"],
     }),
@@ -55,6 +66,7 @@ export const snippetsApi = baseApi.injectEndpoints({
 
 export const {
   useListSnippetsInfiniteQuery,
+  useSearchSnippetsQuery,
   useListTagsQuery,
   useCreateSnippetMutation,
   useUpdateSnippetMutation,

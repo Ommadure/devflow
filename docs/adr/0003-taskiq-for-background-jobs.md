@@ -25,8 +25,14 @@ async-native, but ARQ's README now states it is in **maintenance-only mode** (is
 - No `asyncio.run` bridge inside sync tasks (the workaround ReviewPilot needs with Celery).
 - A newer, smaller ecosystem than Celery: fewer answers online, no Flower. Worker health
   is observed through logs and `embedding_status` columns.
-- Broker choice (list queue vs Redis Streams with acknowledgements) decides whether a job
-  survives a worker crash; that is settled and tested in Phase 4.
+- **Broker (settled in Phase 4):** `RedisStreamBroker`. A message is acknowledged only after
+  its task finishes; one left unacknowledged (the worker died) is redelivered after
+  `idle_timeout`. At-least-once, so tasks are idempotent — content hashes skip unchanged
+  text, and a conditional update never overwrites a newer edit.
+- **Retries** are an explicit loop in the task (3 attempts, then `failed`), not middleware:
+  the final failure has to be recorded, and a loop makes that obvious.
+- **A young library moves fast:** taskiq 0.13.0 broke taskiq-redis the day before Phase 4,
+  so taskiq is pinned `<0.13`. CI imports the tasks, so a bad upgrade fails the build.
 
 ## Alternatives considered
 - **ARQ**: fits well technically, but choosing a maintenance-only library for new work is

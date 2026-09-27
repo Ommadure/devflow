@@ -20,6 +20,7 @@ class Resource:
     url: str
     create: dict[str, Any]
     change: dict[str, Any]
+    search_url: str
 
 
 RESOURCES = {
@@ -27,9 +28,13 @@ RESOURCES = {
         "/api/v1/snippets",
         {"title": "Alice's secret", "code": "API_KEY = 'alice'", "tags": ["private"]},
         {"title": "pwned by bob"},
+        "/api/v1/snippets/search",
     ),
     "note": Resource(
-        "/api/v1/notes", {"title": "Diary", "content": "private"}, {"content": "pwned"}
+        "/api/v1/notes",
+        {"title": "Diary", "content": "private"},
+        {"content": "pwned"},
+        "/api/v1/notes",
     ),
 }
 
@@ -66,7 +71,7 @@ async def test_lists_only_show_your_own_rows(
     assert (await api.get(resource.url, headers=bob)).json()["items"] == []
     # Even when Bob searches for exactly what Alice wrote.
     query = next(iter(resource.create.values()))
-    searched = await api.get(resource.url, params={"q": query}, headers=bob)
+    searched = await api.get(resource.search_url, params={"q": query}, headers=bob)
     assert searched.json()["items"] == []
 
 

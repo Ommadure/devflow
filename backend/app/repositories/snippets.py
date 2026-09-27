@@ -4,12 +4,11 @@ another user's snippet is indistinguishable from one that doesn't exist."""
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import PageParams, keyset
 from app.models import Snippet
-from app.repositories._text import like_pattern
 
 
 async def list_page(
@@ -17,23 +16,12 @@ async def list_page(
     user_id: UUID,
     params: PageParams,
     *,
-    q: str | None = None,
     language: str | None = None,
     tag: str | None = None,
     favorite: bool | None = None,
 ) -> list[Snippet]:
-    """Up to limit+1 snippets, newest first (see `keyset`)."""
+    """Up to limit+1 snippets, newest first (see `keyset`). Text search is `search.py`."""
     stmt = select(Snippet).where(Snippet.user_id == user_id)
-    if q:
-        # A plain substring filter for now; Phase 4 replaces it with hybrid search.
-        pattern = like_pattern(q)
-        stmt = stmt.where(
-            or_(
-                Snippet.title.ilike(pattern, escape="\\"),
-                Snippet.description.ilike(pattern, escape="\\"),
-                Snippet.code.ilike(pattern, escape="\\"),
-            )
-        )
     if language:
         stmt = stmt.where(Snippet.language == language)
     if tag:

@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -24,3 +25,19 @@ class DashboardSummary(BaseModel):
     notes: int
     focus_sessions: int
     focus_sessions_today: int = Field(description="Since midnight in the requested timezone.")
+
+
+class DayStat(BaseModel):
+    date: date
+    sessions: int
+    minutes: int
+
+
+class PomodoroStats(BaseModel):
+    range: Literal["7d", "30d"]
+    timezone: str
+    days: list[DayStat]
+    total_sessions: int
+    total_minutes: int
+    current_streak: int = Field(description="Consecutive days up to today (or yesterday)")
+    best_streak: int

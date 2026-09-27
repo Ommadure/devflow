@@ -39,8 +39,10 @@ from app.db.base import Base
 from app.db.session import get_engine, get_session, get_sessionmaker
 from app.main import create_app
 from app.services.ai.embeddings import FakeEmbeddingProvider, get_embedding_provider
-from app.services.ai.llm.factory import get_llm_provider
+from app.services.ai.llm.factory import get_llm_provider, llm_http_client
 from app.services.ai.llm.fake import FakeLLMProvider
+from app.services.api_tester.proxy import proxy_http_client
+from app.services.github.client import github_http_client
 from app.workers.dispatch import get_dispatcher
 from tests.helpers import (
     ORIGIN,
@@ -58,7 +60,10 @@ def _fresh_singletons() -> Iterator[None]:
     """Settings, the Redis client and the DB engine are cached once per process in the app.
     Each test runs in its own event loop, and asyncio connections can't cross loops, so
     every test starts with fresh ones."""
-    caches = (get_settings, get_redis, get_engine, get_sessionmaker)
+    caches = (
+        get_settings, get_redis, get_engine, get_sessionmaker,
+        github_http_client, proxy_http_client, llm_http_client,
+    )  # fmt: skip
     for cached in caches:
         cached.cache_clear()
     yield

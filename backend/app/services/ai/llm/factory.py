@@ -36,4 +36,5 @@ def get_llm_provider() -> LLMProvider:
         settings.llm_model,
         llm_http_client(),
         timeout=settings.llm_timeout_seconds,
+        thinking_level=settings.llm_thinking_level,
     )

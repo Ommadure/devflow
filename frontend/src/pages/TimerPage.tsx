@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import {
   BREAK_SECONDS,
   FOCUS_SECONDS,
+  FocusStats,
   browserTimeZone,
   formatClock,
   modeSelected,
@@ -83,6 +84,7 @@ export function TimerPage() {
       <p className="text-center text-xs text-text/50">
         The timer keeps running while you use other pages; the tab title shows what&apos;s left.
       </p>
+      <FocusStats />
     </div>
   );
 }

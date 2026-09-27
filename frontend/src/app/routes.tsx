@@ -8,6 +8,8 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((m) => ({ 
 const SnippetsPage = lazy(() => import("@/pages/SnippetsPage").then((m) => ({ default: m.SnippetsPage })));
 const NotesPage = lazy(() => import("@/pages/NotesPage").then((m) => ({ default: m.NotesPage })));
 const TimerPage = lazy(() => import("@/pages/TimerPage").then((m) => ({ default: m.TimerPage })));
+const GithubPage = lazy(() => import("@/pages/GithubPage").then((m) => ({ default: m.GithubPage })));
+const ApiTesterPage = lazy(() => import("@/pages/ApiTesterPage").then((m) => ({ default: m.ApiTesterPage })));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const ComingSoonPage = lazy(() =>
   import("@/pages/ComingSoonPage").then((m) => ({ default: m.ComingSoonPage })),
@@ -21,7 +23,9 @@ export function AppRoutes() {
         <Route path="/snippets" element={<SnippetsPage />} />
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/timer" element={<TimerPage />} />
-        {MODULES.filter((module) => module.phase > 3).map((module) => (
+        <Route path="/github" element={<GithubPage />} />
+        <Route path="/api-tester" element={<ApiTesterPage />} />
+        {MODULES.filter((module) => module.phase > 6).map((module) => (
           <Route key={module.path} path={module.path} element={<ComingSoonPage module={module} />} />
         ))}
         <Route path="/settings" element={<SettingsPage />} />

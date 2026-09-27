@@ -207,6 +207,39 @@
             "description": "Not authenticated"
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Update Me",
+        "description": "Set (or clear, with null) the GitHub username used for weekly insights.",
+        "operationId": "update_me_api_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a valid GitHub username"
+          }
+        }
       }
     },
     "/api/v1/me/password": {
@@ -1231,6 +1264,60 @@
         }
       }
     },
+    "/api/v1/pomodoro/stats": {
+      "get": {
+        "tags": [
+          "pomodoro"
+        ],
+        "summary": "Stats",
+        "description": "Focus minutes per day (the user's days, in `tz`), totals, and streaks.",
+        "operationId": "stats_api_v1_pomodoro_stats_get",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "7d",
+                "30d"
+              ],
+              "type": "string",
+              "default": "7d",
+              "title": "Range"
+            }
+          },
+          {
+            "name": "tz",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "IANA name, e.g. Asia/Kolkata",
+              "default": "Asia/Kolkata",
+              "title": "Tz"
+            },
+            "description": "IANA name, e.g. Asia/Kolkata"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PomodoroStats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown timezone"
+          }
+        }
+      }
+    },
     "/api/v1/dashboard/summary": {
       "get": {
         "tags": [
@@ -1267,6 +1354,256 @@
           },
           "422": {
             "description": "Unknown timezone"
+          }
+        }
+      }
+    },
+    "/api/v1/api-tester/send": {
+      "post": {
+        "tags": [
+          "api tester"
+        ],
+        "summary": "Send",
+        "description": "Send the request from the server and report what came back.\n\nA 4xx/5xx from the TARGET is a successful proxy call (200 here, the target's status in\nthe body); only a failure to get any answer is an error.",
+        "operationId": "send_api_v1_api_tester_send_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid URL, or a private/reserved destination (BLOCKED_DESTINATION)"
+          },
+          "429": {
+            "description": "More than 30 requests a minute"
+          },
+          "502": {
+            "description": "The target was unreachable or too slow (PROXY_UNREACHABLE, PROXY_TIMEOUT)"
+          }
+        }
+      }
+    },
+    "/api/v1/api-tester/parse-curl": {
+      "post": {
+        "tags": [
+          "api tester"
+        ],
+        "summary": "Curl",
+        "description": "Turn a copied cURL command into method, URL, headers and body. No AI involved.",
+        "operationId": "curl_api_v1_api_tester_parse_curl_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurlParsed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/api-tester/explain-error": {
+      "post": {
+        "tags": [
+          "api tester"
+        ],
+        "summary": "Explain Error",
+        "description": "Likely causes and fixes for a failed response. Counts against the AI quota.",
+        "operationId": "explain_error_api_v1_api_tester_explain_error_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainErrorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpErrorExplanation"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited, or the daily AI quota is used up"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github/overview": {
+      "get": {
+        "tags": [
+          "github"
+        ],
+        "summary": "Overview",
+        "description": "A public profile and its six most recently updated repositories (cached 15 min).",
+        "operationId": "overview_api_v1_github_overview_get",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 39,
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GithubOverview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such GitHub user"
+          },
+          "422": {
+            "description": "Not a valid GitHub username"
+          },
+          "429": {
+            "description": "GitHub's rate limit is used up (GITHUB_RATE_LIMITED)"
+          }
+        }
+      }
+    },
+    "/api/v1/github/insights": {
+      "get": {
+        "tags": [
+          "github"
+        ],
+        "summary": "Insights",
+        "description": "Stored weekly insights, newest week first.",
+        "operationId": "insights_api_v1_github_insights_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "default": 4,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InsightOut"
+                  },
+                  "title": "Response Insights Api V1 Github Insights Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github/insights/generate": {
+      "post": {
+        "tags": [
+          "github"
+        ],
+        "summary": "Generate",
+        "description": "(Re)generate this week's insight so far. Counts against the daily AI quota.",
+        "operationId": "generate_api_v1_github_insights_generate_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No GitHub username set"
+          },
+          "429": {
+            "description": "Quota"
           }
         }
       }
@@ -1340,6 +1677,67 @@
         ],
         "title": "ChangePasswordRequest"
       },
+      "CurlParsed": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method",
+          "url",
+          "headers",
+          "body",
+          "warnings"
+        ],
+        "title": "CurlParsed"
+      },
+      "CurlRequest": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Command"
+          }
+        },
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "title": "CurlRequest"
+      },
       "DashboardSummary": {
         "properties": {
           "snippets": {
@@ -1369,6 +1767,97 @@
         ],
         "title": "DashboardSummary"
       },
+      "DayStat": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "sessions": {
+            "type": "integer",
+            "title": "Sessions"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "sessions",
+          "minutes"
+        ],
+        "title": "DayStat"
+      },
+      "ExplainErrorRequest": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "HEAD",
+              "OPTIONS"
+            ],
+            "title": "Method"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Url"
+          },
+          "status": {
+            "type": "integer",
+            "maximum": 599.0,
+            "minimum": 100.0,
+            "title": "Status"
+          },
+          "status_text": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Status Text",
+            "default": ""
+          },
+          "response_headers": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Response Headers",
+            "default": []
+          },
+          "response_body": {
+            "type": "string",
+            "maxLength": 1000000,
+            "title": "Response Body",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "method",
+          "url",
+          "status"
+        ],
+        "title": "ExplainErrorRequest",
+        "description": "The failed exchange, as the tester shows it."
+      },
       "ExplainRequest": {
         "properties": {
           "level": {
@@ -1384,6 +1873,175 @@
         },
         "type": "object",
         "title": "ExplainRequest"
+      },
+      "GithubOverview": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/GithubProfile"
+          },
+          "repos": {
+            "items": {
+              "$ref": "#/components/schemas/GithubRepo"
+            },
+            "type": "array",
+            "title": "Repos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "repos"
+        ],
+        "title": "GithubOverview"
+      },
+      "GithubProfile": {
+        "properties": {
+          "login": {
+            "type": "string",
+            "title": "Login"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "avatar_url": {
+            "type": "string",
+            "title": "Avatar Url"
+          },
+          "html_url": {
+            "type": "string",
+            "title": "Html Url"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "blog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blog"
+          },
+          "followers": {
+            "type": "integer",
+            "title": "Followers",
+            "default": 0
+          },
+          "following": {
+            "type": "integer",
+            "title": "Following",
+            "default": 0
+          },
+          "public_repos": {
+            "type": "integer",
+            "title": "Public Repos",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "login",
+          "avatar_url",
+          "html_url"
+        ],
+        "title": "GithubProfile"
+      },
+      "GithubRepo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "html_url": {
+            "type": "string",
+            "title": "Html Url"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "stargazers_count": {
+            "type": "integer",
+            "title": "Stargazers Count",
+            "default": 0
+          },
+          "forks_count": {
+            "type": "integer",
+            "title": "Forks Count",
+            "default": 0
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "html_url",
+          "updated_at"
+        ],
+        "title": "GithubRepo"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1410,6 +2068,81 @@
         "type": "object",
         "title": "HealthOut"
       },
+      "HttpErrorExplanation": {
+        "properties": {
+          "likely_causes": {
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Likely Causes"
+          },
+          "suggested_fixes": {
+            "items": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Suggested Fixes"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "likely_causes",
+          "suggested_fixes",
+          "confidence"
+        ],
+        "title": "HttpErrorExplanation"
+      },
+      "InsightOut": {
+        "properties": {
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "github_username": {
+            "type": "string",
+            "title": "Github Username"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Stats"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/WeeklyInsight"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week_start",
+          "github_username",
+          "stats",
+          "summary",
+          "created_at"
+        ],
+        "title": "InsightOut"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -1430,6 +2163,24 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MeUpdate": {
+        "properties": {
+          "github_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Username"
+          }
+        },
+        "type": "object",
+        "title": "MeUpdate",
+        "description": "PATCH /me: only what the user may change about themselves (email and password have\ntheir own flows)."
       },
       "NoteCreate": {
         "properties": {
@@ -1639,6 +2390,177 @@
           "duration_seconds"
         ],
         "title": "PomodoroSessionOut"
+      },
+      "PomodoroStats": {
+        "properties": {
+          "range": {
+            "type": "string",
+            "enum": [
+              "7d",
+              "30d"
+            ],
+            "title": "Range"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DayStat"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "total_sessions": {
+            "type": "integer",
+            "title": "Total Sessions"
+          },
+          "total_minutes": {
+            "type": "integer",
+            "title": "Total Minutes"
+          },
+          "current_streak": {
+            "type": "integer",
+            "title": "Current Streak",
+            "description": "Consecutive days up to today (or yesterday)"
+          },
+          "best_streak": {
+            "type": "integer",
+            "title": "Best Streak"
+          }
+        },
+        "type": "object",
+        "required": [
+          "range",
+          "timezone",
+          "days",
+          "total_sessions",
+          "total_minutes",
+          "current_streak",
+          "best_streak"
+        ],
+        "title": "PomodoroStats"
+      },
+      "ProxyRequest": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "HEAD",
+              "OPTIONS"
+            ],
+            "title": "Method",
+            "default": "GET"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "type": "object",
+            "maxProperties": 50,
+            "title": "Headers",
+            "default": {}
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "ProxyRequest"
+      },
+      "ProxyResponse": {
+        "properties": {
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "status_text": {
+            "type": "string",
+            "title": "Status Text"
+          },
+          "headers": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Headers"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "body_truncated": {
+            "type": "boolean",
+            "title": "Body Truncated"
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "title": "Elapsed Ms"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "final_url": {
+            "type": "string",
+            "title": "Final Url"
+          },
+          "redirects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Redirects"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "status_text",
+          "headers",
+          "body",
+          "body_truncated",
+          "elapsed_ms",
+          "size_bytes",
+          "final_url",
+          "redirects"
+        ],
+        "title": "ProxyResponse"
       },
       "ReadyOut": {
         "properties": {
@@ -2182,6 +3104,44 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WeeklyInsight": {
+        "properties": {
+          "headline": {
+            "type": "string",
+            "maxLength": 140,
+            "minLength": 1,
+            "title": "Headline"
+          },
+          "highlights": {
+            "items": {
+              "type": "string",
+              "maxLength": 240
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 2,
+            "title": "Highlights"
+          },
+          "suggestions": {
+            "items": {
+              "type": "string",
+              "maxLength": 240
+            },
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Suggestions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "headline",
+          "highlights",
+          "suggestions"
+        ],
+        "title": "WeeklyInsight",
+        "description": "What the model must return (spec \u00a711.8)."
       }
     }
   }

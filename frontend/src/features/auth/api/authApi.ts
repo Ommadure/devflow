@@ -1,5 +1,5 @@
 import { baseApi } from "@/lib/api/baseApi";
-import { sessionStarted, signedOut } from "@/lib/api/authSession";
+import { sessionStarted, signedOut, userUpdated } from "@/lib/api/authSession";
 import type { Schemas, SessionOut, User } from "@/lib/api/types";
 
 type Credentials = Schemas["LoginRequest"];
@@ -35,6 +35,14 @@ export const authApi = baseApi.injectEndpoints({
       query: () => "/me",
       providesTags: ["Me"],
     }),
+    updateMe: build.mutation<User, Schemas["MeUpdate"]>({
+      query: (body) => ({ url: "/me", method: "PATCH", body }),
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        const { data } = await queryFulfilled.catch(() => ({ data: null }));
+        if (data) dispatch(userUpdated(data));
+      },
+      invalidatesTags: ["Me"],
+    }),
     changePassword: build.mutation<SessionOut, ChangePassword>({
       query: (body) => ({ url: "/me/password", method: "POST", body }),
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
@@ -53,4 +61,5 @@ export const {
   useLogoutMutation,
   useGetMeQuery,
   useChangePasswordMutation,
+  useUpdateMeMutation,
 } = authApi;

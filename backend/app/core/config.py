@@ -66,10 +66,20 @@ class Settings(BaseSettings):
     # provider's pricing page. Unpriced models record a cost of 0 (and say so in the logs).
     llm_pricing: dict[str, tuple[float, float]] = {}
     llm_timeout_seconds: float = Field(default=60, gt=0)
+    # Gemini "thinking" models spend hidden reasoning tokens that count against the output
+    # limit (measured: 287 of 300 on a tagging call, leaving no room for the JSON). These
+    # tasks don't need deep reasoning; "minimal" = faster, cheaper, and the answer fits.
+    # Empty = the model's default.
+    llm_thinking_level: Literal["", "minimal", "low", "medium", "high"] = "minimal"
     ai_daily_quota_per_user: int = Field(default=50, ge=0)
     # Below this cosine similarity, "ask your notes" says it found nothing — without
     # calling the LLM (no cost, no made-up answer).
     notes_min_similarity: float = Field(default=0.6, ge=0, le=1)
+
+    # GitHub (Phase 6). A token raises the limit from 60 to 5,000 requests an hour; it needs
+    # no scopes at all (public data only). Without one, the overview still works, slowly.
+    github_token: SecretStr = SecretStr("")
+    github_api_url: str = "https://api.github.com"
 
     sentry_dsn: str = ""  # empty: Sentry off
     sentry_traces_sample_rate: float = Field(default=0.0, ge=0, le=1)

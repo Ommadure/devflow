@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+import httpx
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -17,7 +18,10 @@ from app.services.ai.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.ai.llm.base import LLMProvider
 from app.services.ai.llm.factory import get_llm_provider
 from app.services.ai.usage import AiUsageService
+from app.services.api_tester.proxy import proxy_http_client
+from app.services.api_tester.ssrf import Resolver, system_resolver
 from app.services.auth import AuthService
+from app.services.github.client import GitHubClient, build_github_client
 from app.services.notes import NoteService
 from app.services.pomodoro import PomodoroService
 from app.services.search import SearchService
@@ -121,3 +125,32 @@ def get_ai_usage(
 
 
 AiUsageDep = Annotated[AiUsageService, Depends(get_ai_usage)]
+
+
+# ---- API tester ----
+
+PROXY_LIMIT = Rule(limit=30, window_seconds=60)
+
+
+def get_resolver() -> Resolver:
+    """A dependency, so tests can answer DNS lookups without the network."""
+    return system_resolver
+
+
+async def proxy_rate_limit(current: CurrentUserDep, limiter: SlidingLimiterDep) -> None:
+    """30 proxied requests a minute per user: the tester must not become a load generator."""
+    await enforce(limiter, f"proxy:user:{current.id}", PROXY_LIMIT)
+
+
+ProxyClientDep = Annotated[httpx.AsyncClient, Depends(proxy_http_client)]
+ResolverDep = Annotated[Resolver, Depends(get_resolver)]
+
+
+# ---- GitHub ----
+
+
+def get_github(settings: SettingsDep) -> GitHubClient:
+    return build_github_client(settings, get_redis())
+
+
+GitHubDep = Annotated[GitHubClient, Depends(get_github)]

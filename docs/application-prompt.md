@@ -49,7 +49,7 @@ A developer productivity dashboard. One signed-in user keeps their own:
 | **Markdown Notes** | Notes with a live preview and debounced auto-save | `/notes` | P3 |
 | **Focus Timer** | A 25-minute focus / 5-minute break Pomodoro timer that records completed sessions | `/timer` | P3 |
 | **GitHub Analytics** | Look up any public GitHub user: profile and six most recent repositories | `/github` | P6 |
-| **HTTP API Tester** | Compose and send an HTTP request, inspect status, timing, headers and body | `/api` | P6 |
+| **HTTP API Tester** | Compose and send an HTTP request, inspect status, timing, headers and body | `/api-tester` (not `/api`: that prefix belongs to the backend proxy — a page at `/api` broke on reload) | P6 |
 | **Settings** | Account email, password change, and an API connection check | `/settings` | P2 |
 
 On top of those, AI features: hybrid semantic search over snippets (P4), streaming
@@ -68,8 +68,8 @@ insights (P6).
 | 2 | Frontend shell and auth UI | ✅ |
 | 3 | Snippets, notes, timer, dashboard | ✅ |
 | 4 | pgvector, embeddings, Taskiq worker, hybrid search | ✅ |
-| 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | 🟡 in review |
-| 6 | API tester proxy, pomodoro stats, GitHub overview and insights | ⏳ |
+| 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | ✅ |
+| 6 | API tester proxy, pomodoro stats, GitHub overview and insights | 🟡 in review |
 | 7 | Search evaluation, hardening, production deployment | ⏳ |
 
 ---
@@ -336,22 +336,25 @@ today's and all-time sessions from `/dashboard/summary`. Completion is handled b
 `TimerEngine`, mounted once in the layout rather than on this page, so a session still
 completes, is recorded (`POST /pomodoro/sessions`) and announced while you use other pages.
 The tab title shows the countdown while it runs.
-P6: daily focus-minutes chart, current and best streak.
+P6 ✅: *Focus over time* — daily minutes as SVG bars (7 or 30 days), current and best
+streak, with the same numbers in a visually hidden table for screen readers.
 
-**GithubPage** (P6) — Username search (500 ms debounce) through the backend. Shows avatar,
+**GithubPage** (P6 ✅) — Username search (500 ms debounce) through the backend, defaulting to the
+user's own GitHub username. Shows avatar,
 name, bio, company, location, blog, followers, following and public repos, then the six
 most recently updated repositories with description, language, stars and forks. Handles
 not-found and rate-limit errors. Weekly insight card with *Generate now*.
 
-**ApiTesterPage** (P6) — Method select (GET, POST, PUT, PATCH, DELETE), URL, headers as
-JSON, and a body (disabled for GET and DELETE). Sent through the backend proxy. Shows
-status (coloured by class), time in ms, headers, and a pretty-printed body. *Import cURL*
-and *Explain this error* on 4xx/5xx.
+**ApiTesterPage** (P6 ✅) — Method select (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS), URL,
+headers as JSON (validated as you type), and a body (disabled for body-less methods). Sent
+through the backend proxy. Shows status (coloured by class), time, size, redirects followed,
+a truncation notice, headers, and a pretty-printed body. *Import cURL* (with the parser's
+warnings) and *Explain this error* on 4xx/5xx.
 
 **SettingsPage** (P2) — Read-only email; change password (current + new, same strength
 meter and rules); **API connection** card (`ApiConnectionCard`) that calls `/api/v1/me`
 and shows *Connected* with the user id and email, or the error code, message and request
-id, with a *Re-check* button. P6: GitHub username field.
+id, with a *Re-check* button. P6 ✅: GitHub username field (`PATCH /me`).
 
 **Everywhere** (P5 ✅): an AI usage indicator in the sidebar ("12/50 AI requests left
 today"), exported through a separate light entry (`features/ai/shell.ts`) so the markdown
@@ -542,6 +545,13 @@ class LLMProvider(Protocol):
     async def stream(self, messages: list[Message], *,
                      temperature: float = 0.3) -> AsyncIterator[StreamChunk]: ...
 ```
+
+**Thinking models:** Gemini 3.x spends hidden "thinking" tokens that count against
+`maxOutputTokens`. Measured on the real model: a tagging call spent 287 of its 300 tokens
+thinking and never wrote the JSON; an explanation took 1,040 tokens and 30 s. With
+`LLM_THINKING_LEVEL=minimal` (sent as `thinkingConfig.thinkingLevel`): valid JSON, and the
+explanation dropped to 288 tokens / 11 s. A `MAX_TOKENS` finish is its own error
+(`LLMTruncated`, no pointless repair attempt); a truncated stream ends with a visible note.
 
 Implementations: Gemini (default, plain httpx against the REST API) and `FakeLLMProvider`;
 an OpenAI-compatible provider (Ollama/vLLM) fits the same ABC when needed. The key is checked
@@ -785,7 +795,7 @@ want (so no `ai_*` columns are needed).
   "I couldn't find this in your notes" **without calling the LLM**.
 - **Generation:** numbered sources; the model must cite `[n]` and answer only from them.
 
-### 11.6 API tester proxy (P6)
+### 11.6 API tester proxy (P6 ✅)
 
 SSRF protection, all tested:
 
@@ -795,18 +805,31 @@ SSRF protection, all tested:
   validated IP (defeats DNS rebinding) while sending the original `Host`/SNI.
 - At most 3 redirects, **each hop re-validated**.
 - 15 s timeout, 2 MB body cap (truncate and flag), hop-by-hop headers stripped.
-- Returns `{ status, status_text, headers, body, body_truncated, elapsed_ms, size_bytes }`.
+- Returns `{ status, status_text, headers, body, body_truncated, elapsed_ms, size_bytes,
+  final_url, redirects }`. A 4xx/5xx from the target is a successful proxy call.
+
+Found while building it (each has a test):
+- `ipaddress.is_global` is not enough: multicast (`224.0.0.1`) and NAT64 (`64:ff9b::/96`,
+  which can wrap `10.0.0.1`) both report global. IPv6-embedded IPv4 (mapped, NAT64, 6to4)
+  is unwrapped and checked; every address a name resolves to must be public.
+- The 2 MB cap applies to the *decoded* body, so a gzip bomb is stopped too.
+- Requests are built with `client.build_request` so client defaults apply: a hand-built
+  request had no `User-Agent`, and the real GitHub API answered 403.
+- Verified live: `localtest.me` and `10.0.0.1.nip.io` (public names resolving to private
+  addresses) and an httpbin redirect to `169.254.169.254` are all refused.
 
 `parse-curl` is deterministic (`shlex`): `-X`, `-H`, `-d`/`--data`/`--data-raw`, `--json`,
 `-u`, quoting, line continuations. **Use AI only where rules can't do the job.**
 
-### 11.7 Pomodoro stats (P6)
+### 11.7 Pomodoro stats (P6 ✅)
 
 In SQL (`date_trunc`, window functions) in the user's timezone (`tz`, default
-`Asia/Kolkata`). Unit-test streaks across gaps, multiple sessions a day, and midnight in
-other timezones.
+`Asia/Kolkata`). Streaks use gaps-and-islands (`day − row_number()` is constant within a run);
+the current streak survives until today ends (a run reaching yesterday counts). "Now" is a
+parameter, so tests pin it: gaps, several sessions a day, and one instant that falls on
+different days in India and New York.
 
-### 11.8 GitHub overview and weekly insights (P6)
+### 11.8 GitHub overview and weekly insights (P6 ✅)
 
 Server-side calls with `GITHUB_TOKEN` (5,000 req/h instead of 60), 15-minute Redis cache,
 stored ETags with `If-None-Match` (304s don't count against the limit), and a clear
@@ -820,7 +843,11 @@ class WeeklyInsight(BaseModel):
     suggestions: list[str]  # 1-3
 ```
 
-Upsert on `(user_id, week_start)` so re-runs are idempotent.
+Upsert on `(user_id, week_start)` so re-runs are idempotent. Only numbers reach the model
+(counts, repository names, busiest day) — never commit messages. A week with no activity
+gets a fixed "quiet week" note without an LLM call. Cron: Mondays 00:30 UTC (06:00 IST);
+one user's failure doesn't stop the others. Usernames are validated against GitHub's rules
+before they enter a URL path.
 
 ---
 
@@ -884,8 +911,10 @@ current access token but not their refresh sessions.
   both limits → 429; SSE framing, mid-stream errors, both disconnect paths; repair retry;
   the no-LLM guardrail; per-user retrieval; chunking; changed-passage re-embedding; the
   SSE parser across split lines and split UTF-8 characters.
-- P6: SSRF cases (private IPs, localhost, metadata IP, IPv6 loopback, redirect to a
-  private IP, non-http scheme); cURL parser cases; pomodoro streak edge cases.
+- P6 ✅: 53 SSRF/proxy cases (mutation-checked: the multicast and NAT64 guards), including
+  redirects into the private network, gzip bombs and header smuggling; cURL parser cases
+  (bundled/glued flags, `--json`, `-u`); streaks and timezones; GitHub caching, ETag
+  revalidation, rate limits; insights that never send commit messages.
 - **≥ 80% coverage** on `services/` and `repositories/` from P3.
 
 ### Search evaluation (P7)
@@ -942,7 +971,7 @@ build, `npm audit`. CI holds no real credentials.
 | | `DATABASE_URL`, `DATABASE_DIRECT_URL`, `REDIS_URL` |
 | | `JWT_SECRET`, `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `REFRESH_REUSE_GRACE_SECONDS`, `COOKIE_SECURE` |
 | | `CORS_ORIGINS` |
-| | `LLM_PROVIDER`, `LLM_MODEL`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL` |
+| | `LLM_PROVIDER`, `LLM_MODEL`, `GEMINI_API_KEY`, `LLM_THINKING_LEVEL`, `LLM_PRICING`, `NOTES_MIN_SIMILARITY` |
 | | `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIM` |
 | | `GITHUB_TOKEN`, `AI_DAILY_QUOTA_PER_USER`, `SENTRY_DSN` |
 
@@ -985,7 +1014,8 @@ it is secret.
 
 | Question | Blocks |
 |---|---|
-| Does SSE stream cleanly through Vercel's external rewrite, or does the API need its own subdomain on a shared site? | P5 testing, P7 deploy |
+| Does SSE stream cleanly through Vercel's external rewrite, or does the API need its own subdomain on a shared site? | P7 deploy |
+| Gemini free tier: `gemini-3.5-flash` hit its daily request quota during P6 testing (`gemini-3.6-flash` has its own). Stay on the free tier, pick the model per quota, or add billing? | P7 |
 | VM shape and free RAM (Ampere A1 or E2 micro) — sets memory limits for the worker and the embedding model | P7 |
 | API hostname for Let's Encrypt | P7 |
 | Reuse the old Vercel project or create a new one? | P7 |

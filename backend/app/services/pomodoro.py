@@ -1,6 +1,7 @@
 """Focus sessions and the dashboard's counts."""
 
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -10,7 +11,7 @@ from app.core.errors import ValidationFailedError
 from app.core.pagination import Page, PageParams, paginate
 from app.models import PomodoroSession
 from app.repositories import notes, pomodoro_sessions, snippets
-from app.schemas.pomodoro import DashboardSummary, PomodoroSessionOut
+from app.schemas.pomodoro import DashboardSummary, DayStat, PomodoroSessionOut, PomodoroStats
 
 
 def parse_timezone(name: str) -> ZoneInfo:
@@ -46,6 +47,29 @@ class PomodoroService:
         items, next_cursor = paginate(rows, params, "completed_at")
         return Page(
             items=[PomodoroSessionOut.model_validate(r) for r in items], next_cursor=next_cursor
+        )
+
+    async def stats(
+        self, range_: Literal["7d", "30d"], tz: ZoneInfo, now: datetime | None = None
+    ) -> PomodoroStats:
+        now = now or datetime.now(UTC)
+        days = 7 if range_ == "7d" else 30
+        daily = await pomodoro_sessions.daily_totals(
+            self._session, self._user_id, days=days, tz=tz.key, now=now
+        )
+        best, current = await pomodoro_sessions.streaks(
+            self._session, self._user_id, tz=tz.key, now=now
+        )
+        return PomodoroStats(
+            range=range_,
+            timezone=tz.key,
+            days=[
+                DayStat(date=day, sessions=n, minutes=seconds // 60) for day, n, seconds in daily
+            ],
+            total_sessions=sum(n for _, n, _ in daily),
+            total_minutes=sum(seconds for _, _, seconds in daily) // 60,
+            current_streak=current,
+            best_streak=best,
         )
 
     async def summary(self, tz: ZoneInfo) -> DashboardSummary:

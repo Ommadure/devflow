@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* `prose` classes for rendered markdown (the notes preview). */
+@plugin "@tailwindcss/typography";
 
 /* DevFlow design tokens (spec §7.7). Dark only. Each becomes a Tailwind utility:
    bg-background, bg-surface, border-border, text-text, bg-accent, text-danger, … */
@@ -57,6 +59,13 @@ body {
     placeholder:text-text/40 focus-visible:border-accent read-only:text-text/70;
 }
 
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 @keyframes slide-in {
   from {
     transform: translateX(-100%);
@@ -66,5 +75,10 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .animate-slide-in {
     animation: slide-in 180ms ease-out;
+  }
+  /* Staggered entrance: each item sets --i (its index) inline. */
+  .animate-fade-up {
+    animation: fade-up 240ms ease-out both;
+    animation-delay: calc(var(--i, 0) * 40ms);
   }
 }

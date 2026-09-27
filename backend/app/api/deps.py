@@ -7,12 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.errors import RateLimitedError
+from app.core.pagination import PageParams, page_params
 from app.core.passwords import PasswordHasher, get_password_hasher
 from app.core.rate_limit import RateLimiter, RedisRateLimiter, Rule
 from app.core.redis import get_redis
 from app.core.security import CurrentUser, get_current_user
 from app.db.session import get_session
 from app.services.auth import AuthService
+from app.services.notes import NoteService
+from app.services.pomodoro import PomodoroService
+from app.services.snippets import SnippetService
 
 
 def get_rate_limiter() -> RateLimiter:
@@ -42,3 +46,24 @@ async def enforce(limiter: RateLimiter, key: str, rule: Rule) -> None:
     decision = await limiter.hit(key, rule)
     if not decision.allowed:
         raise RateLimitedError(decision.retry_after)
+
+
+# ---- resource services: always built for the signed-in user ----
+
+
+def get_snippet_service(session: SessionDep, current: CurrentUserDep) -> SnippetService:
+    return SnippetService(session, current.id)
+
+
+def get_note_service(session: SessionDep, current: CurrentUserDep) -> NoteService:
+    return NoteService(session, current.id)
+
+
+def get_pomodoro_service(session: SessionDep, current: CurrentUserDep) -> PomodoroService:
+    return PomodoroService(session, current.id)
+
+
+SnippetServiceDep = Annotated[SnippetService, Depends(get_snippet_service)]
+NoteServiceDep = Annotated[NoteService, Depends(get_note_service)]
+PomodoroServiceDep = Annotated[PomodoroService, Depends(get_pomodoro_service)]
+PageParamsDep = Annotated[PageParams, Depends(page_params)]

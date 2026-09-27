@@ -23,7 +23,34 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    # Phase 1 adds Postgres (pgvector) and Redis service containers for integration tests.
+    services:
+      # Integration tests run against real Postgres (row locks, constraints, migrations)
+      # and Redis (rate limits) — the same images as docker-compose.yml.
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: devflow
+          POSTGRES_PASSWORD: devflow
+          POSTGRES_DB: devflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U devflow"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://devflow:devflow@localhost:5432/devflow_test
+      TEST_REDIS_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -37,6 +64,8 @@ jobs:
       - name: Type check
         run: uv run mypy
       - name: Test
+        # Migrations run inside the suite (down to base and back up to head), so a broken
+        # migration or downgrade fails here. No external APIs: APP_ENV=test in conftest.
         run: uv run pytest --cov --cov-report=term-missing
       - name: Audit dependencies
         # Exactly what the production image installs (uv.lock, no dev tools), hash-pinned.

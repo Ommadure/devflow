@@ -1,10 +1,11 @@
 import { skipToken } from "@reduxjs/toolkit/query";
-import { NotebookPen, Plus, Search, Trash2 } from "lucide-react";
+import { MessageCircleQuestion, NotebookPen, Plus, Search, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageLoader, Spinner } from "@/components/ui/Loaders";
+import { AskNotesPanel } from "@/features/ai";
 import {
   NoteEditor,
   noteSelected,
@@ -25,6 +26,7 @@ export function NotesPage() {
   const activeId = useAppSelector(selectActiveNoteId);
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<Note | null>(null);
+  const [asking, setAsking] = useState(false);
   const searchId = useId();
 
   const q = useDebouncedValue(search.trim(), 300);
@@ -50,9 +52,15 @@ export function NotesPage() {
           <h1 id="notes-heading" className="text-2xl font-semibold">
             Notes
           </h1>
-          <button type="button" className="btn-primary" onClick={() => void newNote()} disabled={creating}>
-            {creating ? <Spinner className="size-4" /> : <Plus aria-hidden className="size-4" />} New
-          </button>
+          <div className="flex gap-2">
+            <button type="button" className="btn-secondary" aria-pressed={asking}
+              onClick={() => setAsking((open) => !open)}>
+              <MessageCircleQuestion aria-hidden className="size-4" /> Ask
+            </button>
+            <button type="button" className="btn-primary" onClick={() => void newNote()} disabled={creating}>
+              {creating ? <Spinner className="size-4" /> : <Plus aria-hidden className="size-4" />} New
+            </button>
+          </div>
         </div>
         <div className="relative">
           <label htmlFor={searchId} className="sr-only">
@@ -102,7 +110,13 @@ export function NotesPage() {
         )}
       </section>
 
-      <section aria-label="Editor" className="card min-h-0 p-4">
+      <div className="flex min-h-0 flex-col gap-4">
+      {asking && (
+        <div className="card max-h-[50%] shrink-0 overflow-y-auto p-4">
+          <AskNotesPanel onOpenNote={(id) => dispatch(noteSelected(id))} />
+        </div>
+      )}
+      <section aria-label="Editor" className="card min-h-0 flex-1 p-4">
         {active.data ? (
           <NoteEditor key={active.data.id} note={active.data} />
         ) : active.isFetching ? (
@@ -110,10 +124,11 @@ export function NotesPage() {
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-text/60">
             <NotebookPen aria-hidden className="size-10 text-text/30" />
-            <p>Select a note, or start a new one.</p>
+            <p>Select a note, or start a new one — or ask your notes a question.</p>
           </div>
         )}
       </section>
+      </div>
 
       <ConfirmDialog
         open={deleting !== null}

@@ -15,7 +15,7 @@ def blank_to_none(value: str | None) -> str | None:
     return value or None
 
 
-def _normalize_tags(tags: list[str]) -> list[str]:
+def normalize_tags(tags: list[str]) -> list[str]:
     """Lowercase, trim, spaces to dashes, drop blanks and duplicates (order kept):
     ["React Hooks", "react-hooks", " "] → ["react-hooks"]."""
     seen: dict[str, None] = {}
@@ -39,5 +39,5 @@ Language = Annotated[
 Tags = Annotated[
     list[Annotated[str, StringConstraints(max_length=40)]],
     Field(max_length=20),
-    AfterValidator(_normalize_tags),
+    AfterValidator(normalize_tags),
 ]

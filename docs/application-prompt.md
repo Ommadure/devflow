@@ -67,8 +67,8 @@ insights (P6).
 | 1 | Backend foundation and authentication | ✅ |
 | 2 | Frontend shell and auth UI | ✅ |
 | 3 | Snippets, notes, timer, dashboard | ✅ |
-| 4 | pgvector, embeddings, Taskiq worker, hybrid search | 🟡 in review |
-| 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | ⏳ |
+| 4 | pgvector, embeddings, Taskiq worker, hybrid search | ✅ |
+| 5 | LLM features: explain, auto-tag, ask your notes; quotas and rate limits | 🟡 in review |
 | 6 | API tester proxy, pomodoro stats, GitHub overview and insights | ⏳ |
 | 7 | Search evaluation, hardening, production deployment | ⏳ |
 
@@ -151,7 +151,7 @@ first-party and no CORS preflight is needed.
 | Tests | pytest, pytest-asyncio, httpx `AsyncClient`, respx | P0 |
 | Background jobs | Taskiq 0.12 + `taskiq-redis` (Redis Streams, at-least-once; worker and scheduler). Pinned `<0.13`: taskiq 0.13.0 (2026-09-26) breaks taskiq-redis 1.2.3 | P4 |
 | Vectors / embeddings | pgvector (`pgvector` SQLAlchemy type, no asyncpg codec needed), FastEmbed with the model baked into the image | P4 |
-| LLM | provider interface; Gemini default; OpenAI-compatible swappable; fake for tests | P5 |
+| LLM | provider interface (`complete`, `stream`, `generate_structured`); Gemini over plain httpx (`streamGenerateContent?alt=sse` for streaming); scripted fake for tests and key-less runs. OpenAI-compatible provider: still open | P5 |
 
 ### Infrastructure
 
@@ -292,9 +292,11 @@ In `lib/api/`:
 - On 429: a toast with the retry time (`details.retry_after`).
 - `openapi-typescript` types in `lib/api/schema.ts` via `npm run gen:api` (exports the
   backend schema to `frontend/openapi.json`, then generates the types).
-- P5: `lib/api/sse.ts` — streaming with `fetch` + `ReadableStream` + `TextDecoder`
-  (`EventSource` cannot send an `Authorization` header), parsing `event:`/`data:` lines,
-  with `AbortController` cancellation.
+- P5 ✅: `lib/api/sse.ts` — `postSse` streams with `fetch` + `ReadableStream` (`EventSource`
+  can't POST or send an `Authorization` header), same token/refresh rules as the base
+  query; `SseParser` buffers across chunk boundaries (including split UTF-8 characters,
+  `TextDecoder` with `stream: true`). `useStream` exposes status/text/sources, `stop()`
+  aborts the fetch, and every finished request invalidates the `AiUsage` tag.
 
 ### 7.6 Pages
 
@@ -316,8 +318,8 @@ P4 ✅: typing (300 ms debounce) switches the grid to ranked results from
 `/snippets/search` with a Hybrid / Keyword / Semantic selector and a badge per result
 (*Keyword*, *Semantic*, *Keyword + meaning*). Snippets the worker hasn't embedded yet show
 "Indexing…", and the list polls every 3 s only while any are pending.
-P5: *Explain* panel (streaming markdown, level selector, Stop button) and AI tag
-suggestions as accept/dismiss chips.
+P5 ✅: an *Explain* button per card opens a panel (level selector, streaming markdown, Stop);
+editing a snippet offers *Suggest tags with AI* — chips the user adds one by one.
 
 **NotesPage** (P3) — Two panes. Left: search and a list sorted by last update, each with a
 relative date and a delete button. Right: title input and a Write/Preview toggle; preview
@@ -325,7 +327,9 @@ renders GitHub-flavoured markdown. `useAutosave` saves 1 s after typing stops, *
 at a time** (an older save can never land after a newer one), flushes on switching notes,
 and shows Unsaved/Saving…/Saved/Couldn't save (with Retry, never a retry loop). A save
 patches the note into the cached lists instead of refetching them.
-P5: *Ask your notes* panel with streaming answers and clickable `[n]` citations.
+P5 ✅: an *Ask* toggle shows the *Ask your notes* panel: streamed answer, `[n]` citations
+as buttons that open the cited note (only numbers matching a real source become links),
+and the numbered source list.
 
 **TimerPage** (P3) — Focus (25:00) and break (5:00) modes, start/pause/resume and reset;
 today's and all-time sessions from `/dashboard/summary`. Completion is handled by
@@ -349,8 +353,9 @@ meter and rules); **API connection** card (`ApiConnectionCard`) that calls `/api
 and shows *Connected* with the user id and email, or the error code, message and request
 id, with a *Re-check* button. P6: GitHub username field.
 
-**Everywhere** (P5): an AI usage indicator ("12/50 AI requests left today"), and loading,
-empty, error and rate-limited states on every async view.
+**Everywhere** (P5 ✅): an AI usage indicator in the sidebar ("12/50 AI requests left
+today"), exported through a separate light entry (`features/ai/shell.ts`) so the markdown
+renderer stays out of the main bundle (351 kB instead of 514 kB).
 
 ### 7.7 Design system (P2)
 
@@ -515,11 +520,12 @@ which would include a rejected password. Stack traces never reach the client.
   one MULTI/EXEC, so a counter can never lose its expiry). Login 10/min per IP and 5/min
   per email (hashed in the key), register 5/hour per IP, password change 5 per 15 min
   per user.
-- P5: upgraded to a sliding window used as a dependency, keyed by user id (IP for
-  unauthenticated routes). Defaults: **120/min** general, **10/min** AI routes, **30/min**
-  API-tester proxy.
-- P5: daily AI quota per user (`AI_DAILY_QUOTA_PER_USER`, default 50), counted in
-  `ai_usage`.
+- P5 ✅: a sliding-window limiter (Redis sorted set + atomic Lua script) as router
+  dependencies: **120/min** on every signed-in route, **10/min** on AI routes; **30/min**
+  for the API-tester proxy in P6. Auth keeps its fixed window.
+- P5 ✅: daily AI quota per user (`AI_DAILY_QUOTA_PER_USER`, default 50) = today's (UTC)
+  `ai_usage` rows that reached the model; refusals are recorded as `quota_exceeded` but
+  don't count. `GET /me/ai-usage` feeds the indicator.
 - 429 with `Retry-After` and the standard error body. Check limits and quota **before** a
   stream starts.
 
@@ -537,8 +543,9 @@ class LLMProvider(Protocol):
                      temperature: float = 0.3) -> AsyncIterator[StreamChunk]: ...
 ```
 
-Implementations: Gemini (default, plain httpx against the REST API), an OpenAI-compatible
-provider (for Ollama/vLLM later), and `FakeLLMProvider`. `LLMResult` carries the parsed
+Implementations: Gemini (default, plain httpx against the REST API) and `FakeLLMProvider`;
+an OpenAI-compatible provider (Ollama/vLLM) fits the same ABC when needed. The key is checked
+when the API starts — not in `Settings`, which migrations and scripts also load. `LLMResult` carries the parsed
 object plus tokens, latency and cost. Timeouts and retries with backoff on transient
 upstream errors (5xx, 429 with a short `Retry-After`). Prompts are **versioned templates**
 (`prompts/explain_code_v1`, …) and the version is logged with every call.
@@ -691,14 +698,14 @@ title (A), description (B), tags (B), code (C, `simple` config). Two IMMUTABLE h
 `search_tsv`. `embedding` and `search_tsv` are deferred with raiseload, so lists never
 load 384 floats per row. The `ai_*` columns arrive with auto-tagging in P5.
 
-**`note_chunks` (P5)** — `id`, `note_id → notes on delete cascade`, `user_id`,
+**`note_chunks` (P5 ✅)** — `id`, `note_id → notes on delete cascade`, `user_id`,
 `chunk_index`, `heading`, `content`, `content_hash`, `token_count`, `embedding vector(384)`,
 generated `search_tsv`, `created_at`, `unique(note_id, chunk_index)`; HNSW, GIN and
 `user_id` indexes.
 
-**`ai_usage` (P5)** — `id`, `user_id`, `feature` (`explain_code` | `auto_tag` |
+**`ai_usage` (P5 ✅)** — `id`, `user_id`, `feature` (`explain_code` | `auto_tag` |
 `ask_notes` | `explain_http_error` | `github_insights`), `provider`, `model`,
-`input_tokens`, `output_tokens`, `cost_usd numeric(10,6)`, `latency_ms`, `status`
+`prompt_version`, `input_tokens`, `output_tokens`, `cost_usd numeric(10,6)`, `latency_ms`, `status`
 (`success` | `error` | `quota_exceeded`), `error_code`, `created_at`; index
 `(user_id, created_at)`.
 
@@ -740,10 +747,15 @@ within cosine distance 0.4 (similarity ≥ 0.6) — nearest neighbours always ex
 without a cut-off every query would "match" everything. Known weakness to tune in P7:
 one-word queries embed poorly, so they can pull in a weak semantic neighbour.
 
-### 11.3 Explain this code (P5)
+### 11.3 Explain this code (P5 ✅)
 
-Redact → versioned prompt → stream tokens as SSE. Quota and rate limit checked first;
-`ai_usage` recorded on completion and on error; upstream cancelled on disconnect.
+Redact → versioned prompt → stream tokens as SSE. Rate limit, ownership (404) and quota are
+all checked before the stream starts, so refusals are plain HTTP errors. The provider stream
+is wrapped in `aclosing()`: on disconnect, closing it closes the HTTP connection to the
+model (stopping generation and billing). One `ai_usage` row per call, written in a
+`finally` shielded from cancellation; a disconnect is recorded as `CLIENT_DISCONNECTED`
+whether it arrives as `CancelledError` (awaiting the model) or `GeneratorExit` (paused at a
+`yield`) — the tests caught the second case.
 
 ### 11.4 Auto-tagging (P5)
 
@@ -754,15 +766,20 @@ class SnippetTagSuggestion(BaseModel):
     description: str     # one sentence, max 140 chars
 ```
 
-Validate with Pydantic; on failure retry **once** with the validation error in the prompt,
-then return a clean error. Normalise (lowercase, dedupe, max 5). The user accepts
-suggestions explicitly; user tags are never overwritten.
+Validate with Pydantic; on failure retry **once** with the model's own reply and the
+validation error in the prompt, then return 502 `AI_INVALID_OUTPUT`. Normalise (lowercase,
+dedupe, max 5). Nothing is stored: suggestions are returned, and the user adds the ones they
+want (so no `ai_*` columns are needed).
 
 ### 11.5 Ask your notes (P5)
 
-- **Chunking:** split by markdown heading, then ~300-token windows with ~50 overlap;
-  keep the nearest heading for citations.
+- **Chunking:** split by markdown heading (ignoring `#` lines inside code fences), then
+  ~300-token windows with ~50 overlap; keep the nearest heading for citations. The embedded
+  text is note title + heading + passage.
 - **Re-embedding:** compare chunk hashes; embed new or changed chunks only, delete removed.
+  `notes.indexed_at` records the note version the chunks reflect; the sweep and the
+  backfill re-index notes where it lags `updated_at`. Stale writes are dropped (the note row
+  is locked and its version re-checked before writing).
 - **Retrieval:** hybrid search over `note_chunks`, top 6.
 - **Guardrail:** if the best semantic similarity is under a configurable threshold, answer
   "I couldn't find this in your notes" **without calling the LLM**.
@@ -862,8 +879,11 @@ current access token but not their refresh sessions.
   both, exact RRF scores), stemming vs exact code tokens, camelCase, per-user search,
   hostile query syntax, the query cache; embedding idempotency, stale-write protection,
   retries → failed, the sweep; opt-in tests against the real model.
-- P5: rate limiter and quota → 429 with `Retry-After`; every redaction pattern; SSE event
-  format and the error event; the SSE parser with chunks split mid-line.
+- P5 ✅: Gemini client against mocked HTTP (headers, retries, streaming, blocked prompts);
+  every redaction pattern (and a mutation check that the prompt is redacted); quota and
+  both limits → 429; SSE framing, mid-stream errors, both disconnect paths; repair retry;
+  the no-LLM guardrail; per-user retrieval; chunking; changed-passage re-embedding; the
+  SSE parser across split lines and split UTF-8 characters.
 - P6: SSRF cases (private IPs, localhost, metadata IP, IPv6 loopback, redirect to a
   private IP, non-http scheme); cURL parser cases; pomodoro streak edge cases.
 - **≥ 80% coverage** on `services/` and `repositories/` from P3.

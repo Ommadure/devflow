@@ -34,3 +34,19 @@ export function mockFetch(routes: Record<string, Handler>) {
       calls.filter((call) => `${call.method} ${new URL(call.url).pathname}` === key).length,
   };
 }
+
+/** A text/event-stream response delivered in exactly these chunks (to test boundaries). */
+export function sseResponse(chunks: Array<string | Uint8Array>, { hang = false } = {}): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(typeof chunk === "string" ? encoder.encode(chunk) : chunk);
+      if (!hang) controller.close(); // hang: the server is still "thinking"
+    },
+  });
+  return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream" } });
+}
+
+export function sse(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}

@@ -7,8 +7,8 @@ GitHub analytics and an HTTP API tester — with AI on top: hybrid semantic sear
 **Stack:** React 19 + TypeScript + Redux Toolkit / RTK Query (Vite) · FastAPI + SQLAlchemy async · Postgres
 + pgvector · Redis · Taskiq · FastEmbed · Gemini.
 
-> 🚧 **Being rebuilt from its specification, one phase at a time.** Phase 4 (hybrid semantic
-> search) is in review. See [the spec](docs/application-prompt.md) for the full design and
+> 🚧 **Being rebuilt from its specification, one phase at a time.** Phase 5 (AI features:
+> explain, auto-tag, ask your notes) is in review. See [the spec](docs/application-prompt.md) for the full design and
 > [the ADRs](docs/adr/README.md) for why each choice was made.
 
 ## Roadmap
@@ -19,8 +19,8 @@ GitHub analytics and an HTTP API tester — with AI on top: hybrid semantic sear
 | 1 | Backend foundation and authentication | ✅ |
 | 2 | Frontend shell and auth UI | ✅ |
 | 3 | Snippets, notes, timer, dashboard | ✅ |
-| 4 | Embeddings, Taskiq worker, hybrid search | 🟡 |
-| 5 | LLM features: explain, auto-tag, ask your notes | ⏳ |
+| 4 | Embeddings, Taskiq worker, hybrid search | ✅ |
+| 5 | LLM features: explain, auto-tag, ask your notes | 🟡 |
 | 6 | API tester proxy, pomodoro stats, GitHub insights | ⏳ |
 | 7 | Search evaluation, hardening, deployment | ⏳ |
 
@@ -29,7 +29,7 @@ GitHub analytics and an HTTP API tester — with AI on top: hybrid semantic sear
 Prerequisites: Docker, [uv](https://docs.astral.sh/uv/), Node 22.12+.
 
 ```bash
-cd backend && cp -n .env.example .env         # then set JWT_SECRET (the file says how)
+cd backend && cp -n .env.example .env         # set JWT_SECRET and GEMINI_API_KEY (or LLM_PROVIDER=fake)
 cd .. && docker compose up -d --build         # API :8000, worker, scheduler, Postgres :5434, Redis :6380
 ./backend/scripts/smoke_auth.sh               # register → refresh → change password → logout
 cd frontend && npm install && npm run dev     # app on :5173 — create an account there

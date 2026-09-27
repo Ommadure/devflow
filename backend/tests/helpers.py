@@ -22,9 +22,13 @@ class RecordingDispatcher:
 
     def __init__(self) -> None:
         self.embeds: list[UUID] = []
+        self.notes: list[UUID] = []
 
     async def embed_snippet(self, snippet_id: UUID) -> None:
         self.embeds.append(snippet_id)
+
+    async def embed_note(self, note_id: UUID) -> None:
+        self.notes.append(note_id)
 
 
 class InMemoryRateLimiter:

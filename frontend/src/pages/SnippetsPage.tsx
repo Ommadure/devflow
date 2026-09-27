@@ -4,6 +4,7 @@ import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PageLoader, Spinner } from "@/components/ui/Loaders";
 import { Modal } from "@/components/ui/Modal";
+import { ExplainPanel } from "@/features/ai";
 import {
   SnippetCard,
   SnippetForm,
@@ -35,6 +36,7 @@ export function SnippetsPage() {
   const [mode, setMode] = useState<SearchMode>("hybrid");
   const [editing, setEditing] = useState<Editing>(null);
   const [deleting, setDeleting] = useState<Snippet | null>(null);
+  const [explaining, setExplaining] = useState<Snippet | null>(null);
   const searchId = useId();
 
   // Typing debounced: one search when the user pauses, not one per keystroke.
@@ -140,7 +142,8 @@ export function SnippetsPage() {
             {shown.map((snippet, index) => (
               <SnippetCard key={snippet.id} snippet={snippet} index={index}
                 matchType={searching ? hits[index]?.match_type : undefined}
-                onEdit={(s) => setEditing({ mode: "edit", snippet: s })} onDelete={setDeleting} />
+                onEdit={(s) => setEditing({ mode: "edit", snippet: s })} onDelete={setDeleting}
+                onExplain={setExplaining} />
             ))}
           </div>
           {!searching && list.hasNextPage && (
@@ -163,6 +166,12 @@ export function SnippetsPage() {
             onDone={() => setEditing(null)}
           />
         )}
+      </Modal>
+
+      <Modal open={explaining !== null} size="lg" onClose={() => setExplaining(null)}
+        title={`Explain: ${explaining?.title ?? ""}`}>
+        {/* Keyed: a different snippet starts a fresh explanation. */}
+        {explaining && <ExplainPanel key={explaining.id} snippet={explaining} />}
       </Modal>
 
       <ConfirmDialog

@@ -11,6 +11,7 @@
 
 x-backend: &backend
   build: ./backend
+  image: devflow-backend
   # Secrets (JWT_SECRET) come from backend/.env; the values below override its localhost
   # settings so containers reach the other services by name and use the baked-in model.
   env_file:

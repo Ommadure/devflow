@@ -11,10 +11,12 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 import structlog
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Snippet
+from app.models import Note, NoteChunk, Snippet
+from app.services.ai.chunking import chunk_embedding_text, chunk_note
 from app.services.ai.embedding_text import content_hash, embedding_text
 from app.services.ai.embeddings import EmbeddingProvider
 
@@ -126,3 +128,90 @@ async def _embed(
     for snippet_id, outcome in outcomes.items():
         log.info("embedding.done", snippet_id=str(snippet_id), outcome=outcome)
     return [outcomes[snippet.id] for snippet in snippets]
+
+
+# ---- notes: chunk, then embed only the passages that changed (spec §11.5) ----
+
+NoteOutcome = Literal["indexed", "unchanged", "missing", "stale"]
+
+
+async def embed_note(
+    session: AsyncSession, provider: EmbeddingProvider, note_id: uuid.UUID
+) -> NoteOutcome:
+    note = await session.get(Note, note_id)
+    if note is None:
+        return "missing"  # deleted; its chunks went with it (ON DELETE CASCADE)
+    version = note.updated_at
+    if note.indexed_at == version:
+        return "unchanged"
+
+    chunks = chunk_note(note.content)
+    wanted = [
+        (chunk, content_hash(chunk_embedding_text(note.title, chunk), provider.model_name))
+        for chunk in chunks
+    ]
+    existing = {
+        row.chunk_index: row.content_hash
+        for row in await session.execute(
+            select(NoteChunk.chunk_index, NoteChunk.content_hash).where(
+                NoteChunk.note_id == note.id
+            )
+        )
+    }
+    # Autosave fires every second while typing; a typical edit changes one passage.
+    changed = [(chunk, digest) for chunk, digest in wanted if existing.get(chunk.index) != digest]
+    vectors = (
+        await provider.embed_documents(
+            [chunk_embedding_text(note.title, chunk) for chunk, _ in changed]
+        )
+        if changed
+        else []
+    )
+
+    # Lock the note and re-check its version before writing: if it was edited while we
+    # were embedding, these passages describe text that no longer exists. The edit queued
+    # its own job, so drop ours.
+    current = await session.scalar(
+        select(Note.updated_at).where(Note.id == note.id).with_for_update()
+    )
+    if current != version:
+        await session.rollback()
+        return "stale"
+
+    for (chunk, digest), vector in zip(changed, vectors, strict=True):
+        values = {
+            "heading": chunk.heading,
+            "content": chunk.content,
+            "content_hash": digest,
+            "token_count": chunk.token_count,
+            "embedding": vector,
+        }
+        await session.execute(
+            pg_insert(NoteChunk)
+            .values(note_id=note.id, user_id=note.user_id, chunk_index=chunk.index, **values)
+            .on_conflict_do_update(index_elements=["note_id", "chunk_index"], set_=values)
+        )
+    await session.execute(
+        delete(NoteChunk).where(NoteChunk.note_id == note.id, NoteChunk.chunk_index >= len(chunks))
+    )
+    await session.execute(
+        update(Note)
+        .where(Note.id == note.id)
+        .values(indexed_at=version, updated_at=Note.updated_at)  # indexing isn't an edit
+    )
+    await session.commit()
+    log.info("note.indexed", note_id=str(note.id), passages=len(chunks), embedded=len(changed))
+    return "indexed"
+
+
+async def embed_stale_notes(
+    session: AsyncSession, provider: EmbeddingProvider, *, older_than: datetime | None = None
+) -> dict[NoteOutcome, int]:
+    """Re-index every note whose passages are behind its text (the backfill and the sweep)."""
+    stmt = select(Note.id).where(or_(Note.indexed_at.is_(None), Note.indexed_at < Note.updated_at))
+    if older_than is not None:
+        stmt = stmt.where(Note.updated_at < older_than)
+    counts: dict[NoteOutcome, int] = {"indexed": 0, "unchanged": 0, "missing": 0, "stale": 0}
+    for note_id in list(await session.scalars(stmt)):
+        counts[await embed_note(session, provider, note_id)] += 1
+    return counts

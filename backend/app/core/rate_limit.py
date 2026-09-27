@@ -1,11 +1,16 @@
 """Rate limiting behind a small protocol, so routes don't care where counts live.
 
-Phase 1 uses a fixed window in Redis: simple, one round trip, and good enough to stop
-password guessing. Phase 5 replaces it with a sliding window for the AI routes, where a
-burst at a window boundary (up to twice the limit) matters more.
+Two implementations behind one protocol:
+- RedisRateLimiter, a fixed window: simple, one round trip, good enough to stop password
+  guessing (auth routes).
+- SlidingWindowRateLimiter: exact "N per last minute", for the general API limit and the
+  expensive AI routes, where a burst at a window boundary (up to twice the limit) matters.
 """
 
 import hashlib
+import math
+import time
+import uuid
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -54,3 +59,45 @@ class RedisRateLimiter:
 def hashed(value: str) -> str:
     """Key part for personal data (emails): counts per person without storing who."""
     return hashlib.sha256(value.encode()).hexdigest()[:32]
+
+
+# Atomic in Redis (a script runs without interleaving): drop timestamps older than the
+# window, count what's left, admit and record this hit only if under the limit. A fixed
+# window lets a client send `limit` requests at 0:59 and `limit` more at 1:00; a sliding
+# window counts the last 60 seconds at every moment.
+_SLIDING_WINDOW = """
+local key, member = KEYS[1], ARGV[4]
+local now, window, limit = tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
+redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
+if redis.call('ZCARD', key) < limit then
+  redis.call('ZADD', key, now, member)
+  redis.call('PEXPIRE', key, window)
+  return 0
+end
+local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+return oldest[2] + window - now
+"""
+
+
+class SlidingWindowRateLimiter:
+    """Timestamps of recent hits in a sorted set; used for the general and AI limits."""
+
+    def __init__(self, redis: Redis, prefix: str = "rls") -> None:
+        self._redis = redis
+        self._prefix = prefix
+        self._script = redis.register_script(_SLIDING_WINDOW)
+
+    async def hit(self, key: str, rule: Rule) -> Decision:
+        now_ms = int(time.time() * 1000)
+        wait_ms = int(
+            await self._script(
+                keys=[f"{self._prefix}:{key}"],
+                args=[
+                    now_ms,
+                    rule.window_seconds * 1000,
+                    rule.limit,
+                    f"{now_ms}-{uuid.uuid4().hex}",
+                ],
+            )
+        )
+        return Decision(allowed=wait_ms == 0, retry_after=max(1, math.ceil(wait_ms / 1000)))

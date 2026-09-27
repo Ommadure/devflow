@@ -3,17 +3,20 @@
 from typing import Annotated
 
 from fastapi import Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
 from app.core.errors import RateLimitedError
 from app.core.pagination import PageParams, page_params
 from app.core.passwords import PasswordHasher, get_password_hasher
-from app.core.rate_limit import RateLimiter, RedisRateLimiter, Rule
+from app.core.rate_limit import RateLimiter, RedisRateLimiter, Rule, SlidingWindowRateLimiter
 from app.core.redis import get_redis
 from app.core.security import CurrentUser, get_current_user
-from app.db.session import get_session
+from app.db.session import get_session, get_sessionmaker
 from app.services.ai.embeddings import EmbeddingProvider, get_embedding_provider
+from app.services.ai.llm.base import LLMProvider
+from app.services.ai.llm.factory import get_llm_provider
+from app.services.ai.usage import AiUsageService
 from app.services.auth import AuthService
 from app.services.notes import NoteService
 from app.services.pomodoro import PomodoroService
@@ -69,8 +72,10 @@ def get_search_service(
     return SearchService(session, current.id, provider, get_redis(), settings)
 
 
-def get_note_service(session: SessionDep, current: CurrentUserDep) -> NoteService:
-    return NoteService(session, current.id)
+def get_note_service(
+    session: SessionDep, current: CurrentUserDep, dispatcher: DispatcherDep
+) -> NoteService:
+    return NoteService(session, current.id, dispatcher)
 
 
 def get_pomodoro_service(session: SessionDep, current: CurrentUserDep) -> PomodoroService:
@@ -82,3 +87,37 @@ SearchServiceDep = Annotated[SearchService, Depends(get_search_service)]
 NoteServiceDep = Annotated[NoteService, Depends(get_note_service)]
 PomodoroServiceDep = Annotated[PomodoroService, Depends(get_pomodoro_service)]
 PageParamsDep = Annotated[PageParams, Depends(page_params)]
+
+
+# ---- rate limits (spec §8.8) and the AI features ----
+
+GENERAL_LIMIT = Rule(limit=120, window_seconds=60)
+AI_LIMIT = Rule(limit=10, window_seconds=60)
+
+
+def get_sliding_limiter() -> RateLimiter:
+    return SlidingWindowRateLimiter(get_redis())
+
+
+SlidingLimiterDep = Annotated[RateLimiter, Depends(get_sliding_limiter)]
+LLMDep = Annotated[LLMProvider, Depends(get_llm_provider)]
+SessionFactoryDep = Annotated[async_sessionmaker[AsyncSession], Depends(get_sessionmaker)]
+
+
+async def general_rate_limit(current: CurrentUserDep, limiter: SlidingLimiterDep) -> None:
+    """120 requests a minute per user, on every authenticated route."""
+    await enforce(limiter, f"api:user:{current.id}", GENERAL_LIMIT)
+
+
+async def ai_rate_limit(current: CurrentUserDep, limiter: SlidingLimiterDep) -> None:
+    """10 AI requests a minute per user, on top of the daily quota."""
+    await enforce(limiter, f"ai:user:{current.id}", AI_LIMIT)
+
+
+def get_ai_usage(
+    sessions: SessionFactoryDep, current: CurrentUserDep, settings: SettingsDep
+) -> AiUsageService:
+    return AiUsageService(sessions, current.id, settings)
+
+
+AiUsageDep = Annotated[AiUsageService, Depends(get_ai_usage)]

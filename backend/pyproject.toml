@@ -19,7 +19,7 @@ dependencies = [
     "structlog>=24.4",
     # <0.13: taskiq 0.13.0 (2026-09-26) removed taskiq.compat.model_dump, which
     # taskiq-redis 1.2.3 still imports. Lift once taskiq-redis supports 0.13.
-    "taskiq>=0.12.1,<0.13",
+    "taskiq>=0.12.1,<0.14",
     "taskiq-redis>=1.0",
     "uvicorn[standard]>=0.32",
 ]

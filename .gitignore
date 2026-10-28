@@ -31,3 +31,7 @@ coverage/
 # Scratch evaluation runs (committed results live in evals/search/results/)
 evals/**/tmp/
 .cache/
+
+
+# 
+ubuntu@137.23.41.129
